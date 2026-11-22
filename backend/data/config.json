@@ -1,0 +1,8 @@
+{
+  "version": "v7.0",
+  "title": "FPS Zombie Sương Mù",
+  "weapons": ["pistol", "shotgun", "rifle", "thuanthien"],
+  "waves": 10,
+  "bossWaves": [5, 10],
+  "districts": ["Nghĩa Địa Cổ", "Nhà Thờ Đổ Nát", "Chợ Đêm Bỏ Hoang", "Rừng Thông Sương", "Ngã Tư Làng"]
+}

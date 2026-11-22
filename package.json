@@ -1,0 +1,8 @@
+{
+  "name": "fps-zombie-suong-mu",
+  "version": "7.0.0",
+  "description": "FPS Zombie Sương Mù — Modular Full-Stack 3D WebGL Survival FPS",
+  "scripts": {
+    "start": "node backend/server.js"
+  }
+}
