@@ -65,6 +65,9 @@ window.FPS = window.FPS || {};
   var QMODE = "auto";
   var QLEVEL = 1;
   var QNAMES = ["CAO", "TRUNG", "THẤP"];
+  var _lastQSwitch = 0;
+  var _lastIdleRender = 0;
+  var _maxLoadPct = 0;
 
   function setTxt(id, val) {
     var el = document.getElementById(id);
@@ -80,7 +83,8 @@ window.FPS = window.FPS || {};
   var _lastTipIdx = -1;
 
   function updateLoadUI(pct, stageTxt, detailTxt) {
-    var p = Math.max(0, Math.min(100, Math.round(pct || 0)));
+    var p = Math.max(_maxLoadPct, Math.min(100, Math.round(pct || 0)));
+    _maxLoadPct = p;
     var bar = document.getElementById("loadBarFill");
     if (bar) bar.style.width = p + "%";
     setTxt("loadPct", p + "%");
@@ -216,6 +220,7 @@ window.FPS = window.FPS || {};
     if (eb) eb.classList.add("hidden");
 
     G.state = "playing";
+    _lastIdleRender = 0;
     document.body.classList.add("playing");
     if (typeof startAnimLoop === "function") startAnimLoop();
 
@@ -374,6 +379,7 @@ window.FPS = window.FPS || {};
         killsDelta: deltaKills
       });
       G.state = "levelclear";
+      _lastIdleRender = 0;
       G.mouseDown = false;
       document.body.classList.remove("playing");
       if (document.exitPointerLock) document.exitPointerLock();
@@ -405,6 +411,7 @@ window.FPS = window.FPS || {};
   function pauseGame() {
     if (G.state !== "playing") return;
     G.state = "paused";
+    _lastIdleRender = 0;
     G.mouseDown = false;
     document.body.classList.remove("playing");
     if (document.exitPointerLock) document.exitPointerLock();
@@ -419,6 +426,7 @@ window.FPS = window.FPS || {};
     var ps = document.getElementById("pauseScr");
     if (ps) ps.classList.add("hidden");
     G.state = "playing";
+    _lastIdleRender = 0;
     document.body.classList.add("playing");
     lockPointer();
     updateLockHint();
@@ -436,6 +444,7 @@ window.FPS = window.FPS || {};
     E.clearZombies();
     E.clearFireZones();
     G.state = "menu";
+    _lastIdleRender = 0;
     G.mouseDown = false;
     G.reloading = false;
     document.body.classList.remove("playing");
@@ -454,6 +463,7 @@ window.FPS = window.FPS || {};
   function endGame(win) {
     winWasCampaign = !!win;
     G.state = "end";
+    _lastIdleRender = 0;
     G.mouseDown = false;
     G.reloading = false;
     document.body.classList.remove("playing");
@@ -578,12 +588,22 @@ window.FPS = window.FPS || {};
   if (volMute) volMute.onclick = toggleMute;
   if (muteBtn) muteBtn.onclick = toggleMute;
 
+  function getTargetDpr() {
+    return QLEVEL === 0 ? Math.min(window.devicePixelRatio || 1, 1.0) : (QLEVEL === 1 ? 0.85 : 0.70);
+  }
+
   function applyQuality() {
-    var dpr = QLEVEL === 0 ? Math.min(devicePixelRatio || 1, 1.25) : (QLEVEL === 1 ? 1 : 0.8);
+    var dpr = getTargetDpr();
     W.renderer.setPixelRatio(dpr);
+    W.renderer.setSize(innerWidth, innerHeight);
+    if (W.setQuality) {
+      W.setQuality(QLEVEL);
+    } else {
+      if (W.dustPts) W.dustPts.visible = QLEVEL < 1;
+      if (W.rainPts) W.rainPts.visible = QLEVEL < 1;
+    }
     E.setParticleMul(QLEVEL === 0 ? 1 : (QLEVEL === 1 ? 0.6 : 0.3));
-    if (W.dustPts) W.dustPts.visible = QLEVEL < 2;
-    if (W.rainPts) W.rainPts.visible = QLEVEL < 2;
+    _lastIdleRender = 0;
     var txt = "Q: " + QMODE.toUpperCase() + " · " + QNAMES[QLEVEL];
     if (FPS.ui && FPS.ui.setQualityBadge) FPS.ui.setQualityBadge(txt);
     else setTxt("qBadge", txt);
@@ -591,6 +611,7 @@ window.FPS = window.FPS || {};
   function setQualityMode(m) {
     QMODE = m;
     QLEVEL = m === "high" ? 0 : (m === "low" ? 2 : 1);
+    _lastQSwitch = performance.now();
     applyQuality();
     var s1 = document.getElementById("qSel");
     var s2 = document.getElementById("qSelP");
@@ -780,9 +801,16 @@ window.FPS = window.FPS || {};
       window.__fpsAvg = fps;
       setTxt("qFps", "FPS: " + fps);
       setTxt("qFpsP", "FPS: " + fps);
-      if (QMODE === "auto" && G.state === "playing") {
-        if (fps < 42 && QLEVEL < 2) { QLEVEL++; applyQuality(); }
-        else if (fps > 57 && QLEVEL > 0) { QLEVEL--; applyQuality(); }
+      if (QMODE === "auto" && G.state === "playing" && (now - _lastQSwitch > 3000)) {
+        if (fps < 44 && QLEVEL < 2) {
+          QLEVEL++;
+          _lastQSwitch = now;
+          applyQuality();
+        } else if (fps > 57 && QLEVEL > 0) {
+          QLEVEL--;
+          _lastQSwitch = now;
+          applyQuality();
+        }
       }
     }
 
@@ -790,6 +818,10 @@ window.FPS = window.FPS || {};
     var dt = Math.min(rawDt, 0.05);
     var realDt = Math.min(rawDt, 0.25);
     var playing = G.state === "playing";
+    if (!playing) {
+      if (_lastIdleRender !== 0 && (now - _lastIdleRender < 500)) return;
+      _lastIdleRender = now;
+    }
     var levelDef = W.currentLevel || (FPS.LEVELS && FPS.LEVELS[G.levelIdx]) || null;
 
     if (playing && levelDef) {
@@ -982,6 +1014,29 @@ window.FPS = window.FPS || {};
     W.renderer.autoClear = true;
   }
 
+  FPS.perf = {
+    getQualityMode: function () { return QMODE; },
+    getQualityLevel: function () { return QLEVEL; },
+    getDpr: getTargetDpr,
+    setQualityMode: setQualityMode,
+    applyQuality: applyQuality,
+    getStats: function () {
+      var wStats = (W.getPerfStats && W.getPerfStats()) || {};
+      return {
+        fps: window.__fpsAvg || 0,
+        qMode: QMODE,
+        qLevel: QLEVEL,
+        dpr: getTargetDpr(),
+        drawCalls: _lastSceneCalls + _lastGunCalls,
+        sceneCalls: _lastSceneCalls,
+        gunCalls: _lastGunCalls,
+        triangles: _lastSceneTris + _lastGunTris,
+        textures: wStats.textures !== undefined ? wStats.textures : (W.renderer && W.renderer.info && W.renderer.info.memory ? W.renderer.info.memory.textures : 0),
+        geometries: wStats.geometries !== undefined ? wStats.geometries : (W.renderer && W.renderer.info && W.renderer.info.memory ? W.renderer.info.memory.geometries : 0)
+      };
+    }
+  };
+
   FPS.game = {
     startLevel: startLevel,
     startCampaign: startCampaign,
@@ -1162,7 +1217,13 @@ window.FPS = window.FPS || {};
   window.addEventListener("resize", function () {
     W.camera.aspect = innerWidth / innerHeight;
     W.camera.updateProjectionMatrix();
+    if (W.gunCam) {
+      W.gunCam.aspect = W.camera.aspect;
+      W.gunCam.updateProjectionMatrix();
+    }
+    W.renderer.setPixelRatio(getTargetDpr());
     W.renderer.setSize(innerWidth, innerHeight);
+    _lastIdleRender = 0;
   });
 
   var _animStarted = false;
@@ -1180,6 +1241,7 @@ window.FPS = window.FPS || {};
   refreshMenuUI();
 
   var _bootFinished = false;
+  var _prewarmBegun = false;
   var _warmupBegun = false;
   var _loadSafetyTimer = null;
 
@@ -1189,6 +1251,7 @@ window.FPS = window.FPS || {};
     if (_loadSafetyTimer) { clearTimeout(_loadSafetyTimer); _loadSafetyTimer = null; }
     var totRes = (FPS.ENV_KEYS ? FPS.ENV_KEYS.length : 22) + 11;
     updateLoadUI(100, "Sẵn sàng chiến đấu!", totRes + " / " + totRes + " tài nguyên · Shader GPU đã biên dịch");
+    _lastIdleRender = 0;
     startAnimLoop();
 
     if (G.state === "loading") {
@@ -1211,28 +1274,65 @@ window.FPS = window.FPS || {};
 
   function handleLoadProgress(p) {
     if (!p) return;
-    var detail = p.phase === "warmup"
-      ? "Shader GPU & kết cấu"
-      : (p.loaded + " / " + p.total + " tài nguyên 3D");
-    updateLoadUI(p.pct, p.label, detail);
+    var pct = Math.min(76, Math.round((p.pct || 0) * 0.95));
+    var detail = (p.loaded || 0) + " / " + (p.total || _initTot) + " tài nguyên 3D";
+    updateLoadUI(pct, p.label, detail);
   }
 
   function beginWarmup() {
     if (_warmupBegun) return;
     _warmupBegun = true;
+    updateLoadUI(88, "Đang nạp kết cấu GPU...", "Shader GPU & kết cấu");
     if (typeof W.warmupGPU === "function") {
-      W.warmupGPU(handleLoadProgress, finishBoot);
+      W.warmupGPU(function (p) {
+        if (!p) return;
+        var wp = 88 + Math.round(Math.max(0, (p.pct || 80) - 80) * 0.6);
+        updateLoadUI(Math.min(100, wp), p.label, "Shader GPU & kết cấu");
+      }, finishBoot);
     } else {
       window.__loadDone = true;
       finishBoot();
     }
   }
 
+  function beginPrewarm() {
+    if (_prewarmBegun) return;
+    _prewarmBegun = true;
+    updateLoadUI(76, "Đang tạo sẵn đội hình xác sống...", "0 / 12 mẫu 3D");
+    if (typeof E.prewarmZombiePool === "function") {
+      E.prewarmZombiePool(function (done, tot) {
+        updateLoadUI(
+          76 + Math.round((done / Math.max(1, tot)) * 12),
+          "Đang tạo sẵn đội hình xác sống...",
+          done + " / " + tot + " mẫu 3D"
+        );
+      }, beginWarmup);
+    } else {
+      beginWarmup();
+    }
+  }
+
   var _initTot = (FPS.ENV_KEYS ? FPS.ENV_KEYS.length : 22) + 11;
   updateLoadUI(2, "Đang khởi tạo bộ giải mã 3D...", "0 / " + _initTot + " tài nguyên 3D");
   _loadSafetyTimer = setTimeout(function () {
-    beginWarmup();
+    if (_bootFinished) return;
+    if (!_prewarmBegun) {
+      beginPrewarm();
+      _loadSafetyTimer = setTimeout(function () {
+        if (_bootFinished) return;
+        if (!_warmupBegun) beginWarmup();
+        else { window.__loadDone = true; finishBoot(); }
+      }, 5000);
+    } else if (!_warmupBegun) {
+      beginWarmup();
+      _loadSafetyTimer = setTimeout(function () {
+        if (!_bootFinished) { window.__loadDone = true; finishBoot(); }
+      }, 5000);
+    } else {
+      window.__loadDone = true;
+      finishBoot();
+    }
   }, 15000);
 
-  W.loadAllGLBs(beginWarmup, handleLoadProgress);
+  W.loadAllGLBs(beginPrewarm, handleLoadProgress);
 })();

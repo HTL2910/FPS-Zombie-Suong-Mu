@@ -6,10 +6,16 @@ window.FPS = window.FPS || {};
   scene.background = new THREE.Color(0x070a0f);
   scene.fog = new THREE.FogExp2(0x0a0e13, 0.021);
 
-  var camera = new THREE.PerspectiveCamera(74, innerWidth / innerHeight, 0.1, 95);
+  var camera = new THREE.PerspectiveCamera(74, innerWidth / innerHeight, 0.1, 85);
   camera.position.set(0, 1.7, 40);
+  camera.updateProjectionMatrix();
 
-  var renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+  var renderer = new THREE.WebGLRenderer({
+    antialias: false,
+    powerPreference: "high-performance",
+    precision: "mediump",
+    stencil: false
+  });
   renderer.setPixelRatio(1);
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = false;
@@ -86,8 +92,8 @@ window.FPS = window.FPS || {};
     scene.add(p);
     return p;
   }
-  var dustPts = makePoints(120, 0.05, 0xfff2cf, 0.45);
-  var rainPts = makePoints(280, 0.08, 0x9fc0e0, 0.3);
+  var dustPts = makePoints(60, 0.05, 0xfff2cf, 0.45);
+  var rainPts = makePoints(140, 0.08, 0x9fc0e0, 0.3);
 
   // Level container & persistent world arrays
   var levelGroup = new THREE.Group();
@@ -97,6 +103,7 @@ window.FPS = window.FPS || {};
   var GUN_T = {};
   var ENV_T = {};
   var ENV_DIM = {};
+  var _envSubCache = {};
   var HIT_FLASH_MAT = new THREE.MeshBasicMaterial({ color: 0xff3b30 });
 
   var colliders = [];
@@ -105,6 +112,31 @@ window.FPS = window.FPS || {};
   var supplyNodes = [];
   var streetLights = [];
   var wisps = [];
+
+  var _qualityLevel = 0;
+  var _visFrame = 0;
+  var _lampPoleInst = null;
+  var _lampHeadInst = null;
+  var _lampHaloInst = null;
+  var _barrelBodyInst = null;
+  var _barrelRingInst = null;
+  var _scorchOuterInst = null;
+  var _scorchRingInst = null;
+  var _scorchCursor = 0;
+  var _supBuckets = {};
+
+  // Reusable zero-alloc transform scratch objects
+  var _tmpPos = new THREE.Vector3();
+  var _tmpScale = new THREE.Vector3();
+  var _tmpQuat = new THREE.Quaternion();
+  var _tmpEuler = new THREE.Euler();
+  var _tmpMat4 = new THREE.Matrix4();
+  var _tmpPlacementMat = new THREE.Matrix4();
+  var _identQuat = new THREE.Quaternion();
+  var _unitScale = new THREE.Vector3(1, 1, 1);
+  var _upAxis = new THREE.Vector3(0, 1, 0);
+  var _flatQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI * 0.5);
+  var _zeroMat4 = new THREE.Matrix4().makeScale(0, 0, 0);
 
   // ---------------------------------------------------------------------------
   // Procedural Tiled Textures & Cached Materials (generated ONCE at startup)
@@ -453,8 +485,9 @@ window.FPS = window.FPS || {};
     }
   }
 
-  function toFastLambert(root, fallbackHex, tintMul) {
+  function toFastLambert(root, fallbackHex, tintMul, isEnv) {
     if (!root || !root.traverse) return;
+    var swaps = [];
     root.traverse(function (o) {
       if (o.geometry && o.geometry.userData) o.geometry.userData.sharedGeo = true;
       if (!(o.isMesh || o.isSkinnedMesh) || !o.material) return;
@@ -479,10 +512,31 @@ window.FPS = window.FPS || {};
         if (typeof m.dispose === "function") { try { m.dispose(); } catch (e) {} }
         out.push(lm);
       }
-      o.material = Array.isArray(o.material) ? out : out[0];
-      o.userData.origMat = o.material;
+      var outMat = Array.isArray(o.material) ? out : out[0];
+      o.material = outMat;
+      o.userData.origMat = outMat;
       o.frustumCulled = !o.isSkinnedMesh;
+      if (isEnv && o.isSkinnedMesh && o.parent) {
+        var nm = new THREE.Mesh(o.geometry, outMat);
+        nm.position.copy(o.position);
+        nm.rotation.copy(o.rotation);
+        nm.scale.copy(o.scale);
+        nm.name = o.name;
+        nm.userData.origMat = outMat;
+        nm.frustumCulled = true;
+        swaps.push([o, nm]);
+      }
     });
+    for (var si = 0; si < swaps.length; si++) {
+      var oldMesh = swaps[si][0];
+      var newMesh = swaps[si][1];
+      var parent = oldMesh.parent;
+      if (parent) {
+        while (oldMesh.children.length) newMesh.add(oldMesh.children[0]);
+        parent.add(newMesh);
+        parent.remove(oldMesh);
+      }
+    }
   }
 
   function hardenGunObj(root) {
@@ -936,6 +990,24 @@ window.FPS = window.FPS || {};
     return out;
   }
 
+  var _supGlowBarGeo = (function () {
+    var b = new THREE.BoxGeometry(0.96, 0.1, 0.72);
+    b.translate(0, 0.08, 0);
+    var c1 = new THREE.BoxGeometry(0.36, 0.06, 0.12);
+    c1.translate(0, 0.30, 0);
+    return _markShared(_mergeIndexedGeos([b, c1]));
+  })();
+
+  var _supGlowCrossGeo = (function () {
+    var b = new THREE.BoxGeometry(0.96, 0.1, 0.72);
+    b.translate(0, 0.08, 0);
+    var c1 = new THREE.BoxGeometry(0.36, 0.06, 0.12);
+    c1.translate(0, 0.30, 0);
+    var c2 = new THREE.BoxGeometry(0.12, 0.06, 0.36);
+    c2.translate(0, 0.30, 0);
+    return _markShared(_mergeIndexedGeos([b, c1, c2]));
+  })();
+
   function _collectFenceRun(x, z, len, rot, sp, postMatrices, railGeos) {
     var step = sp || 4.5;
     var n = Math.max(2, Math.floor(len / step));
@@ -958,26 +1030,37 @@ window.FPS = window.FPS || {};
     }
   }
 
-  function _lamp(x, z) {
-    var pole = new THREE.Mesh(_lampPoleGeo, _mats.lampPole);
-    pole.position.set(x, 2.2, z);
-    pole.matrixAutoUpdate = false;
-    pole.updateMatrix();
-    levelGroup.add(pole);
+  function _buildLampsInstanced(lamps) {
+    if (!lamps || !lamps.length) return;
+    _lampPoleInst = new THREE.InstancedMesh(_lampPoleGeo, _mats.lampPole, lamps.length);
+    _lampHeadInst = new THREE.InstancedMesh(_lampHeadGeo, _mats.lampHead, lamps.length);
+    _lampHaloInst = new THREE.InstancedMesh(_lampHaloGeo, _mats.lampHalo, lamps.length);
 
-    var head = new THREE.Mesh(_lampHeadGeo, _mats.lampHead);
-    head.position.set(x, 4.5, z);
-    head.matrixAutoUpdate = false;
-    head.updateMatrix();
-    levelGroup.add(head);
+    for (var li = 0; li < lamps.length; li++) {
+      var lp = lamps[li];
+      _tmpPos.set(lp.x, 2.2, lp.z);
+      _tmpMat4.compose(_tmpPos, _identQuat, _unitScale);
+      _lampPoleInst.setMatrixAt(li, _tmpMat4);
 
-    var halo = new THREE.Mesh(_lampHaloGeo, _mats.lampHalo);
-    halo.position.set(x, 4.5, z);
-    halo.matrixAutoUpdate = true;
-    levelGroup.add(halo);
+      _tmpPos.set(lp.x, 4.5, lp.z);
+      _tmpMat4.compose(_tmpPos, _identQuat, _unitScale);
+      _lampHeadInst.setMatrixAt(li, _tmpMat4);
 
-    streetLights.push({ head: head, halo: halo, x: x, z: z, flick: Math.random() * 10, on: true });
-    _addCircleCollider(x, z, 0.3);
+      _tmpMat4.compose(_tmpPos, camera.quaternion, _unitScale);
+      _lampHaloInst.setMatrixAt(li, _tmpMat4);
+
+      streetLights.push({ x: lp.x, y: 4.5, z: lp.z, flick: Math.random() * 10, on: true, instIdx: li });
+      _addCircleCollider(lp.x, lp.z, 0.3);
+    }
+
+    var arr = [_lampPoleInst, _lampHeadInst, _lampHaloInst];
+    for (var i = 0; i < arr.length; i++) {
+      arr[i].instanceMatrix.needsUpdate = true;
+      arr[i].matrixAutoUpdate = false;
+      arr[i].updateMatrix();
+      arr[i].frustumCulled = false;
+      levelGroup.add(arr[i]);
+    }
   }
 
   var _solidBulletProps = { house: 1, watchtower: 1, pagoda: 1, windmill: 1, wall_step: 1 };
@@ -1034,34 +1117,26 @@ window.FPS = window.FPS || {};
     return g;
   }
 
-  function _envPlace(p) {
-    var tpl = ENV_T[p.key], d = ENV_DIM[p.key];
-    if (p.key === "wall_door" && p.coll === "gate") {
-      var gh = p.h || (d ? d.h : 5.2);
-      var gScale = d && d.h ? (gh / d.h) : 2.8;
-      var gw = d ? d.w * gScale : 5.6;
-      var gd = d ? d.d * gScale : 0.72;
-      return _buildOpenGate(p, gw, gh, gd);
-    }
-    if (!tpl || !d || !d.h) return null;
-    var scale, sink = p.sink || 0;
-    if (p.w && !p.h && d.w) {
-      scale = p.w / d.w;
-      sink = (d.h * scale) - 0.06;
-    } else {
-      scale = (p.h || d.h) / d.h;
-      if (p.key === "cobble" && !p.sink) sink = Math.max(0, (d.h * scale) - 0.08);
-    }
-    var m = tpl.clone(true);
-    m.scale.setScalar(scale);
-    m.position.set(p.x, -d.minY * scale - sink, p.z);
-    if (p.rotY) m.rotation.y = p.rotY;
-    m.traverse(function (o) { o.matrixAutoUpdate = false; o.updateMatrix(); });
-    levelGroup.add(m);
+  function _getEnvSubs(key) {
+    var tpl = ENV_T[key];
+    if (!tpl) return null;
+    var cached = _envSubCache[key];
+    if (cached && cached.tpl === tpl) return cached.subs;
+    tpl.updateMatrixWorld(true);
+    var invRoot = new THREE.Matrix4().copy(tpl.matrixWorld).invert();
+    var subs = [];
+    tpl.traverse(function (o) {
+      if (o.isMesh && o.geometry) {
+        if (o.geometry.userData) o.geometry.userData.sharedGeo = true;
+        var localMat = new THREE.Matrix4().multiplyMatrices(invRoot, o.matrixWorld);
+        subs.push({ geo: o.geometry, mat: o.material, localMat: localMat });
+      }
+    });
+    _envSubCache[key] = { tpl: tpl, subs: subs };
+    return subs;
+  }
 
-    var sw = d.w * scale;
-    var sd = d.d * scale;
-    var sh = d.h * scale;
+  function _registerPropColliders(p, sw, sd, sh) {
     var ry = p.rotY || 0;
     var coll = p.coll;
     if (coll === "box") {
@@ -1087,8 +1162,6 @@ window.FPS = window.FPS || {};
         _addBulletWall(rx, rz, ghw, ghd, sh, ry);
       }
     }
-    window.__envPlaced = (window.__envPlaced || 0) + 1;
-    return m;
   }
 
   var _propsPlacedForLevel = null;
@@ -1098,81 +1171,190 @@ window.FPS = window.FPS || {};
     if (!Object.keys(ENV_T).length) return;
     _propsPlacedForLevel = levelDef;
     var props = levelDef.props || [];
+    var propBuckets = {};
+    var bucketOrder = [];
+
     for (var i = 0; i < props.length; i++) {
-      _envPlace(props[i]);
+      var p = props[i];
+      var d = ENV_DIM[p.key];
+      if (p.key === "wall_door" && p.coll === "gate") {
+        var gh = p.h || (d ? d.h : 5.2);
+        var gScale = d && d.h ? (gh / d.h) : 2.8;
+        var gw = d ? d.w * gScale : 5.6;
+        var gd = d ? d.d * gScale : 0.72;
+        _buildOpenGate(p, gw, gh, gd);
+        continue;
+      }
+      var subs = _getEnvSubs(p.key);
+      if (!subs || !subs.length || !d || !d.h) continue;
+
+      var scale, sink = p.sink || 0;
+      if (p.w && !p.h && d.w) {
+        scale = p.w / d.w;
+        sink = (d.h * scale) - 0.06;
+      } else {
+        scale = (p.h || d.h) / d.h;
+        if (p.key === "cobble" && !p.sink) sink = Math.max(0, (d.h * scale) - 0.08);
+      }
+
+      var ry = p.rotY || 0;
+      _tmpPos.set(p.x, -d.minY * scale - sink, p.z);
+      if (ry) _tmpQuat.setFromAxisAngle(_upAxis, ry);
+      else _tmpQuat.copy(_identQuat);
+      _tmpScale.setScalar(scale);
+      _tmpPlacementMat.compose(_tmpPos, _tmpQuat, _tmpScale);
+
+      var bList = propBuckets[p.key];
+      if (!bList) {
+        bList = [];
+        for (var si = 0; si < subs.length; si++) {
+          bList.push({ geo: subs[si].geo, mat: subs[si].mat, matrices: [] });
+        }
+        propBuckets[p.key] = bList;
+        bucketOrder.push(p.key);
+      }
+      for (var sj = 0; sj < subs.length; sj++) {
+        bList[sj].matrices.push(new THREE.Matrix4().multiplyMatrices(_tmpPlacementMat, subs[sj].localMat));
+      }
+
+      _registerPropColliders(p, d.w * scale, d.d * scale, d.h * scale);
+      window.__envPlaced = (window.__envPlaced || 0) + 1;
+    }
+
+    for (var bi = 0; bi < bucketOrder.length; bi++) {
+      var list = propBuckets[bucketOrder[bi]];
+      for (var sbi = 0; sbi < list.length; sbi++) {
+        var entry = list[sbi];
+        if (!entry.matrices.length) continue;
+        var inst = new THREE.InstancedMesh(entry.geo, entry.mat, entry.matrices.length);
+        for (var mi = 0; mi < entry.matrices.length; mi++) {
+          inst.setMatrixAt(mi, entry.matrices[mi]);
+        }
+        inst.instanceMatrix.needsUpdate = true;
+        inst.matrixAutoUpdate = false;
+        inst.updateMatrix();
+        if (typeof inst.computeBoundingSphere === "function") {
+          inst.computeBoundingSphere();
+          inst.frustumCulled = true;
+        } else {
+          inst.frustumCulled = false;
+        }
+        levelGroup.add(inst);
+      }
     }
   }
 
-  function _buildBarrel(b) {
-    var g = new THREE.Group();
-    var body = new THREE.Mesh(_barrelBodyGeo, _mats.barrelBody);
-    body.position.y = 0.59;
-    g.add(body);
+  function _buildBarrelsInstanced(barrels) {
+    if (!barrels || !barrels.length) return;
+    var n = barrels.length;
+    _barrelBodyInst = new THREE.InstancedMesh(_barrelBodyGeo, _mats.barrelBody, n);
+    _barrelRingInst = new THREE.InstancedMesh(_barrelFloorGeo, _mats.barrelFloorRing, n);
+    _scorchOuterInst = new THREE.InstancedMesh(_scorchOuterGeo, _mats.scorchOuter, n);
+    _scorchRingInst = new THREE.InstancedMesh(_scorchRingGeo, _mats.scorchRing, n);
 
-    var floorRing = new THREE.Mesh(_barrelFloorGeo, _mats.barrelFloorRing);
-    floorRing.rotation.x = -Math.PI * 0.5;
-    floorRing.position.y = 0.03;
-    g.add(floorRing);
+    for (var bi = 0; bi < n; bi++) {
+      var b = barrels[bi];
+      _tmpPos.set(b.x, 0.59, b.z);
+      _tmpMat4.compose(_tmpPos, _identQuat, _unitScale);
+      _barrelBodyInst.setMatrixAt(bi, _tmpMat4);
 
-    g.position.set(b.x, 0, b.z);
-    g.traverse(function (o) { o.matrixAutoUpdate = false; o.updateMatrix(); });
-    g.matrixAutoUpdate = false;
-    g.updateMatrix();
-    levelGroup.add(g);
+      _tmpPos.set(b.x, 0.03, b.z);
+      _tmpMat4.compose(_tmpPos, _flatQuat, _unitScale);
+      _barrelRingInst.setMatrixAt(bi, _tmpMat4);
 
-    var rec = { x: b.x, z: b.z, r: 0.58, hp: 30, alive: true, mesh: g };
-    explosiveBarrels.push(rec);
-    _addCircleCollider(b.x, b.z, 0.58, rec);
+      _scorchOuterInst.setMatrixAt(bi, _zeroMat4);
+      _scorchRingInst.setMatrixAt(bi, _zeroMat4);
+
+      var rec = { x: b.x, z: b.z, r: 0.58, hp: 30, alive: true, mesh: null, instIdx: bi };
+      explosiveBarrels.push(rec);
+      _addCircleCollider(b.x, b.z, 0.58, rec);
+    }
+
+    var arr = [_barrelBodyInst, _barrelRingInst, _scorchOuterInst, _scorchRingInst];
+    for (var i = 0; i < arr.length; i++) {
+      arr[i].instanceMatrix.needsUpdate = true;
+      arr[i].matrixAutoUpdate = false;
+      arr[i].updateMatrix();
+      arr[i].frustumCulled = false;
+      levelGroup.add(arr[i]);
+    }
   }
 
-  function _buildSupplyNode(s) {
-    var kind = s.kind || "both";
-    var bodyMat = kind === "med" ? _mats.supMedBody : (kind === "ammo" ? _mats.supAmmoBody : _mats.supBothBody);
-    var glowMat = kind === "med" ? _mats.supMedGlow : (kind === "ammo" ? _mats.supAmmoGlow : _mats.supBothGlow);
-    var floorMat = kind === "med" ? _mats.supFloorMed : (kind === "ammo" ? _mats.supFloorAmmo : _mats.supFloorBoth);
-
-    var g = new THREE.Group();
-    var boxGrp = new THREE.Group();
-    boxGrp.position.y = 0.34;
-    var box = new THREE.Mesh(_supBoxGeo, bodyMat);
-    boxGrp.add(box);
-    var band = new THREE.Mesh(_supBandGeo, glowMat);
-    band.position.y = 0.08;
-    boxGrp.add(band);
-    var c1 = new THREE.Mesh(_supCross1Geo, glowMat);
-    c1.position.y = 0.30;
-    boxGrp.add(c1);
-    if (kind !== "ammo") {
-      var c2 = new THREE.Mesh(_supCross2Geo, glowMat);
-      c2.position.y = 0.30;
-      boxGrp.add(c2);
+  function _buildSuppliesInstanced(supplies) {
+    if (!supplies || !supplies.length) return;
+    var supByKind = { med: [], ammo: [], both: [] };
+    for (var si = 0; si < supplies.length; si++) {
+      var s = supplies[si];
+      var kind = s.kind || "both";
+      if (!supByKind[kind]) supByKind[kind] = [];
+      var idx = supByKind[kind].length;
+      var rec = {
+        x: s.x,
+        z: s.z,
+        kind: kind,
+        alive: true,
+        respawnT: 0,
+        mesh: null,
+        instIdx: idx,
+        _t: Math.random() * 6,
+        _ry: 0,
+        _rz: 0,
+        _wasAlive: true
+      };
+      supByKind[kind].push(rec);
+      supplyNodes.push(rec);
     }
-    g.add(boxGrp);
 
-    var disc = new THREE.Mesh(_supDiscGeo, floorMat);
-    disc.rotation.x = -Math.PI * 0.5;
-    disc.position.y = 0.04;
-    g.add(disc);
+    for (var kKey in supByKind) {
+      if (!Object.prototype.hasOwnProperty.call(supByKind, kKey)) continue;
+      var list = supByKind[kKey];
+      if (!list.length) continue;
 
-    var ring = new THREE.Mesh(_supRingGeo, glowMat);
-    ring.rotation.x = -Math.PI * 0.5;
-    ring.position.y = 0.06;
-    g.add(ring);
+      var bodyMat = kKey === "med" ? _mats.supMedBody : (kKey === "ammo" ? _mats.supAmmoBody : _mats.supBothBody);
+      var glowMat = kKey === "med" ? _mats.supMedGlow : (kKey === "ammo" ? _mats.supAmmoGlow : _mats.supBothGlow);
+      var floorMat = kKey === "med" ? _mats.supFloorMed : (kKey === "ammo" ? _mats.supFloorAmmo : _mats.supFloorBoth);
+      var glowGeo = kKey === "ammo" ? _supGlowBarGeo : _supGlowCrossGeo;
 
-    g.position.set(s.x, 0, s.z);
-    levelGroup.add(g);
+      var boxInst = new THREE.InstancedMesh(_supBoxGeo, bodyMat, list.length);
+      var glowInst = new THREE.InstancedMesh(glowGeo, glowMat, list.length);
+      var discInst = new THREE.InstancedMesh(_supDiscGeo, floorMat, list.length);
+      var ringInst = new THREE.InstancedMesh(_supRingGeo, glowMat, list.length);
 
-    supplyNodes.push({
-      x: s.x,
-      z: s.z,
-      kind: kind,
-      alive: true,
-      respawnT: 0,
-      mesh: g,
-      _box: boxGrp,
-      _ring: ring,
-      _t: Math.random() * 6
-    });
+      for (var i = 0; i < list.length; i++) {
+        var item = list[i];
+        _tmpPos.set(item.x, 0.34 + Math.sin(item._t) * 0.065, item.z);
+        _tmpMat4.compose(_tmpPos, _identQuat, _unitScale);
+        boxInst.setMatrixAt(i, _tmpMat4);
+        glowInst.setMatrixAt(i, _tmpMat4);
+
+        _tmpPos.set(item.x, 0.04, item.z);
+        _tmpMat4.compose(_tmpPos, _flatQuat, _unitScale);
+        discInst.setMatrixAt(i, _tmpMat4);
+
+        _tmpPos.set(item.x, 0.06, item.z);
+        _tmpMat4.compose(_tmpPos, _flatQuat, _unitScale);
+        ringInst.setMatrixAt(i, _tmpMat4);
+      }
+
+      var arr = [boxInst, glowInst, discInst, ringInst];
+      for (var ai = 0; ai < arr.length; ai++) {
+        arr[ai].instanceMatrix.needsUpdate = true;
+        arr[ai].matrixAutoUpdate = false;
+        arr[ai].updateMatrix();
+        arr[ai].frustumCulled = false;
+        levelGroup.add(arr[ai]);
+      }
+
+      _supBuckets[kKey] = {
+        boxInst: boxInst,
+        glowInst: glowInst,
+        discInst: discInst,
+        ringInst: ringInst,
+        boxDirty: false,
+        discDirty: false,
+        ringDirty: false
+      };
+    }
   }
 
   function _buildExtractPortal(ep) {
@@ -1245,6 +1427,9 @@ window.FPS = window.FPS || {};
       if (o.geometry && (!o.geometry.userData || !o.geometry.userData.sharedGeo)) {
         o.geometry.dispose();
       }
+      if (o.isInstancedMesh && typeof o.dispose === "function") {
+        o.dispose();
+      }
     });
     while (levelGroup.children.length) {
       levelGroup.remove(levelGroup.children[0]);
@@ -1270,6 +1455,16 @@ window.FPS = window.FPS || {};
     wisps.length = 0;
     window.__envPlaced = 0;
     _propsPlacedForLevel = null;
+    _lampPoleInst = null;
+    _lampHeadInst = null;
+    _lampHaloInst = null;
+    _barrelBodyInst = null;
+    _barrelRingInst = null;
+    _scorchOuterInst = null;
+    _scorchRingInst = null;
+    _scorchCursor = 0;
+    _supBuckets = {};
+    _visFrame = 0;
 
     world.currentLevel = levelDef;
 
@@ -1368,34 +1563,27 @@ window.FPS = window.FPS || {};
     // GLB Props (placed immediately if templates loaded, otherwise completed when loadAllGLBs finishes)
     _placeLevelProps(levelDef);
 
-    // Street Lamps (shared glow halos, zero PointLights)
-    var lamps = levelDef.lamps || [];
-    for (var li = 0; li < lamps.length; li++) {
-      _lamp(lamps[li].x, lamps[li].z);
-    }
+    // Street Lamps (batched into 3 InstancedMeshes, zero PointLights)
+    _buildLampsInstanced(levelDef.lamps || []);
 
-    // Explosive Crimson Barrels
-    var barrels = levelDef.explosiveBarrels || [];
-    for (var bi = 0; bi < barrels.length; bi++) {
-      _buildBarrel(barrels[bi]);
-    }
+    // Explosive Crimson Barrels + Pooled Scorch Marks (batched into 4 InstancedMeshes)
+    _buildBarrelsInstanced(levelDef.explosiveBarrels || []);
 
-    // Supply Nodes
-    var supplies = levelDef.supplies || [];
-    for (var si = 0; si < supplies.length; si++) {
-      _buildSupplyNode(supplies[si]);
-    }
+    // Supply Nodes (batched per kind via InstancedMesh + merged glow geometry)
+    _buildSuppliesInstanced(levelDef.supplies || []);
 
     // Extraction Portal Beacon
     world.extractPortal = _buildExtractPortal(levelDef.extractPos);
 
-    // Ground Fog Wisps
-    var wCount = 12;
+    // Ground Fog Wisps (reduced count + respects quality level)
+    var wCount = 4;
+    var showWeather = _qualityLevel < 1;
     for (var fi = 0; fi < wCount; fi++) {
       var wp = new THREE.Mesh(_wispGeo, _mats.wisp);
       wp.position.set((Math.random() - 0.5) * arena * 0.9, 1.1 + Math.random() * 1.1, (Math.random() - 0.5) * arena * 0.9);
       wp.rotation.y = Math.random() * Math.PI;
       wp.scale.x = 0.7 + Math.random() * 0.7;
+      wp.visible = showWeather;
       levelGroup.add(wp);
       wisps.push({ m: wp, s: 0.25 + Math.random() * 0.45, half: half });
     }
@@ -1404,7 +1592,7 @@ window.FPS = window.FPS || {};
   }
 
   // ---------------------------------------------------------------------------
-  // Visual Updates & Barrel Detonation
+  // Visual Updates, Barrel Detonation & Quality API
   // ---------------------------------------------------------------------------
   var _visT = 0;
   var _lockedHex = 0xffa833;
@@ -1445,32 +1633,84 @@ window.FPS = window.FPS || {};
       }
     }
 
-    // Supply Nodes visual sync & floating spin
+    // Supply Nodes instanced visual sync & floating spin
     for (var si = 0; si < supplyNodes.length; si++) {
       var sn = supplyNodes[si];
-      if (!sn.mesh) continue;
-      sn.mesh.visible = !!sn.alive;
-      if (!sn.alive) continue;
-      sn._t += d * 2.4;
-      if (sn._box) {
-        sn._box.position.y = 0.34 + Math.sin(sn._t) * 0.065;
-        sn._box.rotation.y += d * 0.95;
+      var bucket = _supBuckets[sn.kind];
+      if (!bucket) continue;
+      if (!sn.alive) {
+        if (sn._wasAlive) {
+          bucket.boxInst.setMatrixAt(sn.instIdx, _zeroMat4);
+          bucket.glowInst.setMatrixAt(sn.instIdx, _zeroMat4);
+          bucket.discInst.setMatrixAt(sn.instIdx, _zeroMat4);
+          bucket.ringInst.setMatrixAt(sn.instIdx, _zeroMat4);
+          bucket.boxDirty = true;
+          bucket.discDirty = true;
+          bucket.ringDirty = true;
+          sn._wasAlive = false;
+        }
+        continue;
       }
-      if (sn._ring) sn._ring.rotation.z += d * 1.25;
+      if (!sn._wasAlive) {
+        _tmpPos.set(sn.x, 0.04, sn.z);
+        _tmpMat4.compose(_tmpPos, _flatQuat, _unitScale);
+        bucket.discInst.setMatrixAt(sn.instIdx, _tmpMat4);
+        bucket.discDirty = true;
+        sn._wasAlive = true;
+      }
+      sn._t += d * 2.4;
+      sn._ry += d * 0.95;
+      sn._rz += d * 1.25;
+
+      _tmpPos.set(sn.x, 0.34 + Math.sin(sn._t) * 0.065, sn.z);
+      _tmpQuat.setFromAxisAngle(_upAxis, sn._ry);
+      _tmpMat4.compose(_tmpPos, _tmpQuat, _unitScale);
+      bucket.boxInst.setMatrixAt(sn.instIdx, _tmpMat4);
+      bucket.glowInst.setMatrixAt(sn.instIdx, _tmpMat4);
+      bucket.boxDirty = true;
+
+      _tmpPos.set(sn.x, 0.06, sn.z);
+      _tmpEuler.set(-Math.PI * 0.5, 0, sn._rz, "XYZ");
+      _tmpQuat.setFromEuler(_tmpEuler);
+      _tmpMat4.compose(_tmpPos, _tmpQuat, _unitScale);
+      bucket.ringInst.setMatrixAt(sn.instIdx, _tmpMat4);
+      bucket.ringDirty = true;
+    }
+    for (var sk in _supBuckets) {
+      if (!Object.prototype.hasOwnProperty.call(_supBuckets, sk)) continue;
+      var bk = _supBuckets[sk];
+      if (bk.boxDirty) {
+        bk.boxInst.instanceMatrix.needsUpdate = true;
+        bk.glowInst.instanceMatrix.needsUpdate = true;
+        bk.boxDirty = false;
+      }
+      if (bk.discDirty) {
+        bk.discInst.instanceMatrix.needsUpdate = true;
+        bk.discDirty = false;
+      }
+      if (bk.ringDirty) {
+        bk.ringInst.instanceMatrix.needsUpdate = true;
+        bk.ringDirty = false;
+      }
     }
 
-    // Street Lamp halos billboard toward camera
-    for (var li = 0; li < streetLights.length; li++) {
-      var sl = streetLights[li];
-      if (!sl.halo) continue;
-      sl.halo.lookAt(camera.position);
-      var fl = 1 + 0.045 * Math.sin(_visT * 6.5 + sl.flick);
-      sl.halo.scale.set(fl, fl, 1);
+    // Street Lamp halos billboard toward camera (throttled to every 2nd call)
+    if ((_visFrame++ % 2 === 0) && _lampHaloInst && streetLights.length) {
+      for (var li = 0; li < streetLights.length; li++) {
+        var sl = streetLights[li];
+        var fl = 1 + 0.045 * Math.sin(_visT * 6.5 + sl.flick);
+        _tmpPos.set(sl.x, 4.5, sl.z);
+        _tmpScale.set(fl, fl, 1);
+        _tmpMat4.compose(_tmpPos, camera.quaternion, _tmpScale);
+        _lampHaloInst.setMatrixAt(li, _tmpMat4);
+      }
+      _lampHaloInst.instanceMatrix.needsUpdate = true;
     }
 
     // Atmospheric wisps & particles
     for (var wi = 0; wi < wisps.length; wi++) {
       var w = wisps[wi];
+      if (!w.m.visible) continue;
       w.m.position.x += Math.sin(_visT * 0.25 + wi) * w.s * d;
       if (w.m.position.x > w.half) w.m.position.x = -w.half;
       else if (w.m.position.x < -w.half) w.m.position.x = w.half;
@@ -1487,22 +1727,55 @@ window.FPS = window.FPS || {};
     barrel.alive = false;
     if (barrel.mesh) barrel.mesh.visible = false;
 
-    var scorch = new THREE.Group();
-    var outer = new THREE.Mesh(_scorchOuterGeo, _mats.scorchOuter);
-    outer.rotation.x = -Math.PI * 0.5;
-    outer.position.y = 0.025;
-    scorch.add(outer);
+    var idx = barrel.instIdx;
+    if (typeof idx === "number") {
+      if (_barrelBodyInst && idx < _barrelBodyInst.count) {
+        _barrelBodyInst.setMatrixAt(idx, _zeroMat4);
+        _barrelBodyInst.instanceMatrix.needsUpdate = true;
+      }
+      if (_barrelRingInst && idx < _barrelRingInst.count) {
+        _barrelRingInst.setMatrixAt(idx, _zeroMat4);
+        _barrelRingInst.instanceMatrix.needsUpdate = true;
+      }
+    }
 
-    var ring = new THREE.Mesh(_scorchRingGeo, _mats.scorchRing);
-    ring.rotation.x = -Math.PI * 0.5;
-    ring.position.y = 0.03;
-    scorch.add(ring);
+    var sIdx = typeof idx === "number"
+      ? idx
+      : (_scorchOuterInst && _scorchCursor < _scorchOuterInst.count ? _scorchCursor++ : -1);
+    if (sIdx >= 0) {
+      if (_scorchOuterInst && sIdx < _scorchOuterInst.count) {
+        _tmpPos.set(barrel.x, 0.025, barrel.z);
+        _tmpMat4.compose(_tmpPos, _flatQuat, _unitScale);
+        _scorchOuterInst.setMatrixAt(sIdx, _tmpMat4);
+        _scorchOuterInst.instanceMatrix.needsUpdate = true;
+      }
+      if (_scorchRingInst && sIdx < _scorchRingInst.count) {
+        _tmpPos.set(barrel.x, 0.03, barrel.z);
+        _tmpMat4.compose(_tmpPos, _flatQuat, _unitScale);
+        _scorchRingInst.setMatrixAt(sIdx, _tmpMat4);
+        _scorchRingInst.instanceMatrix.needsUpdate = true;
+      }
+    }
+  }
 
-    scorch.position.set(barrel.x, 0, barrel.z);
-    scorch.traverse(function (o) { o.matrixAutoUpdate = false; o.updateMatrix(); });
-    scorch.matrixAutoUpdate = false;
-    scorch.updateMatrix();
-    levelGroup.add(scorch);
+  function setQuality(qLevel) {
+    _qualityLevel = qLevel | 0;
+    camera.far = _qualityLevel === 0 ? 85 : (_qualityLevel === 1 ? 72 : 60);
+    camera.updateProjectionMatrix();
+    var showWeather = _qualityLevel < 1;
+    if (dustPts) dustPts.visible = showWeather;
+    if (rainPts) rainPts.visible = showWeather;
+    for (var i = 0; i < wisps.length; i++) {
+      if (wisps[i] && wisps[i].m) wisps[i].m.visible = showWeather;
+    }
+  }
+
+  function getPerfStats() {
+    var mem = renderer && renderer.info && renderer.info.memory ? renderer.info.memory : {};
+    return {
+      textures: mem.textures || 0,
+      geometries: mem.geometries || 0
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -1897,7 +2170,7 @@ window.FPS = window.FPS || {};
         } else {
           var eKey = job.key;
           loader.load("assets/env/env_" + eKey + ".glb", function (g) {
-            toFastLambert(g.scene, 0x3c3a34, envTint[eKey] || 1);
+            toFastLambert(g.scene, 0x3c3a34, envTint[eKey] || 1, true);
             g.scene.updateMatrixWorld(true);
             var bb = new THREE.Box3().setFromObject(g.scene);
             var sz = new THREE.Vector3();
@@ -1973,7 +2246,9 @@ window.FPS = window.FPS || {};
     collide: collide,
     raycastWallDist: raycastWallDist,
     updateWorldVisuals: updateWorldVisuals,
-    detonateBarrelVisual: detonateBarrelVisual
+    detonateBarrelVisual: detonateBarrelVisual,
+    setQuality: setQuality,
+    getPerfStats: getPerfStats
   };
 
   FPS.world = world;

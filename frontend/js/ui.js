@@ -16,6 +16,11 @@ FPS.ui = (function () {
   var _radarWallScale = 0;
   var _radarWallCount = -1;
   var _radarWallSize = 0;
+  var _radarCanvas = null;
+  var _radarCtx = null;
+  var _resolved = {};
+  var _emptyArr = [];
+  var _rPt = { x: 0, y: 0 };
 
   function _el(id) {
     var e = _elCache[id];
@@ -24,6 +29,24 @@ FPS.ui = (function () {
       _elCache[id] = e;
     }
     return e;
+  }
+
+  function _toRadar(wx, wz, px0, pz0, cx, cy, co, sy, scale, maxR) {
+    var dx = wx - px0;
+    var dz = wz - pz0;
+    var rx = dx * co - dz * sy;
+    var rz = dx * sy + dz * co;
+    var px = cx + rx * scale;
+    var py = cy + rz * scale;
+    var d = Math.hypot(px - cx, py - cy);
+    if (d > maxR) {
+      var inv = maxR / d;
+      px = cx + (px - cx) * inv;
+      py = cy + (py - cy) * inv;
+    }
+    _rPt.x = px;
+    _rPt.y = py;
+    return _rPt;
   }
 
   function _setTxt(id, v) {
@@ -74,40 +97,31 @@ FPS.ui = (function () {
     return L === "en" ? (fbEn || fbVi || key) : (fbVi || key);
   }
 
+  var _emptyObj = {};
   function _resolveState(st) {
-    var s = st || {};
-    var fs = FPS.state || {};
-    var fw = FPS.world || {};
-    var fe = FPS.entities || {};
-    var G = s.G || (s.state !== undefined && s.hp !== undefined ? s : null) || fs.G || {};
-    var playerPos = s.playerPos || fs.playerPos || null;
+    var s = st || _emptyObj;
+    var fs = FPS.state || _emptyObj;
+    var fw = FPS.world || _emptyObj;
+    var fe = FPS.entities || _emptyObj;
+    var G = s.G || (s.state !== undefined && s.hp !== undefined ? s : null) || fs.G || _emptyObj;
     var level = s.level || fw.currentLevel || (FPS.LEVELS && FPS.LEVELS[G.levelIdx || 0]) || null;
-    var curWeapon = s.curWeapon || fe.curWeapon || "pistol";
-    var wState = s.wState || fe.wState || null;
-    var bossRef = s.bossRef !== undefined ? s.bossRef : (fe.bossRef !== undefined ? fe.bossRef : null);
-    var zombies = s.zombies || fe.zombies || [];
-    var barrels = s.barrels || fw.explosiveBarrels || [];
-    var supplies = s.supplies || fw.supplyNodes || [];
-    var fireZones = s.fireZones || fe.fireZones || [];
-    var camera = s.camera || fw.camera || null;
-    return {
-      G: G,
-      playerPos: playerPos,
-      level: level,
-      curWeapon: curWeapon,
-      wState: wState,
-      bossRef: bossRef,
-      zombies: zombies,
-      barrels: barrels,
-      supplies: supplies,
-      fireZones: fireZones,
-      camera: camera
-    };
+    _resolved.G = G;
+    _resolved.playerPos = s.playerPos || fs.playerPos || null;
+    _resolved.level = level;
+    _resolved.curWeapon = s.curWeapon || fe.curWeapon || "pistol";
+    _resolved.wState = s.wState || fe.wState || null;
+    _resolved.bossRef = s.bossRef !== undefined ? s.bossRef : (fe.bossRef !== undefined ? fe.bossRef : null);
+    _resolved.zombies = s.zombies || fe.zombies || _emptyArr;
+    _resolved.barrels = s.barrels || fw.explosiveBarrels || _emptyArr;
+    _resolved.supplies = s.supplies || fw.supplyNodes || _emptyArr;
+    _resolved.fireZones = s.fireZones || fe.fireZones || _emptyArr;
+    _resolved.camera = s.camera || fw.camera || null;
+    return _resolved;
   }
 
   function updateWeaponLabel(curWeapon, G) {
-    var fe = FPS.entities || {};
-    var g = G || (FPS.state && FPS.state.G) || {};
+    var fe = FPS.entities || _emptyObj;
+    var g = G || (FPS.state && FPS.state.G) || _emptyObj;
     var wk = curWeapon || fe.curWeapon || "pistol";
     var W = FPS.WEAPONS && FPS.WEAPONS[wk];
     if (!W) return;
@@ -115,7 +129,7 @@ FPS.ui = (function () {
   }
 
   function updateReloadBar(now, G) {
-    var g = G || (FPS.state && FPS.state.G) || {};
+    var g = G || (FPS.state && FPS.state.G) || _emptyObj;
     var show = g.state === "playing" && !!g.reloading && !!g.reloadDur;
     _toggleHidden("reloadBarWrap", !show);
     if (show) {
@@ -128,7 +142,7 @@ FPS.ui = (function () {
   }
 
   function updateCrosshair(G) {
-    var g = G || (FPS.state && FPS.state.G) || {};
+    var g = G || (FPS.state && FPS.state.G) || _emptyObj;
     var sc = (1 + (g.xhairKick || 0) * 0.55).toFixed(3);
     _setStyle("crosshair", "transform", "translate(-50%,-50%) scale(" + sc + ")");
   }
@@ -136,9 +150,9 @@ FPS.ui = (function () {
   var _lastPlFallback = false;
   function updateLockHint(plFallback) {
     if (plFallback !== undefined) _lastPlFallback = !!plFallback;
-    var h = document.getElementById("lockHint");
+    var h = _el("lockHint");
     if (!h) return;
-    var g = (FPS.state && FPS.state.G) || {};
+    var g = (FPS.state && FPS.state.G) || _emptyObj;
     var camEl = FPS.world && FPS.world.renderer && FPS.world.renderer.domElement;
     var locked = !!(camEl && document.pointerLockElement === camEl);
     var show = g.state === "playing" && !document.body.classList.contains("touch") && !locked;
@@ -162,7 +176,7 @@ FPS.ui = (function () {
     var cb = typeof onPickLevel === "function" ? onPickLevel : _lastSelect.onPickLevel;
     _lastSelect = { profile: prof, selectedLevelId: sel, onPickLevel: cb };
 
-    var grid = document.getElementById("levelGrid");
+    var grid = _el("levelGrid");
     if (!grid) return;
     grid.innerHTML = "";
 
@@ -258,8 +272,8 @@ FPS.ui = (function () {
       var k = el.getAttribute("data-i");
       if (dict[k]) el.textContent = dict[k];
     }
-    var bVi = document.getElementById("langVi");
-    var bEn = document.getElementById("langEn");
+    var bVi = _el("langVi");
+    var bEn = _el("langEn");
     if (bVi) bVi.classList.toggle("on", L === "vi");
     if (bEn) bEn.classList.toggle("on", L === "en");
 
@@ -273,7 +287,7 @@ FPS.ui = (function () {
     _cache.radarZone = null;
     _cache.lockHint = null;
 
-    if (FPS.LEVELS && document.getElementById("levelGrid")) {
+    if (FPS.LEVELS && _el("levelGrid")) {
       renderLevelSelect(_lastSelect.profile, _lastSelect.selectedLevelId, _lastSelect.onPickLevel);
     }
     updateWeaponLabel();
@@ -367,7 +381,7 @@ FPS.ui = (function () {
       var amHtml = W.melee ? "⚔ <small>∞</small>" : (wst.mag + " <small>/ " + (wst.reserve === Infinity ? "∞" : wst.reserve) + "</small>");
       if (_cache.amHtml !== amHtml) {
         _cache.amHtml = amHtml;
-        var amEl = document.getElementById("ammo");
+        var amEl = _el("ammo");
         if (amEl) amEl.innerHTML = amHtml;
       }
       var rh = W.melee ? "" : (G.reloading ? _t("reloading", "ĐANG NẠP…", "RELOADING…") : (wst.mag <= Math.ceil(W.mag * 0.25) && wst.reserve > 0 ? _t("lowAmmo", "SẮP HẾT ĐẠN — NHẤN R", "LOW AMMO — PRESS R") : ""));
@@ -385,7 +399,7 @@ FPS.ui = (function () {
   }
 
   function drawRadar(state) {
-    var c = document.getElementById("fpsRadar");
+    var c = _el("fpsRadar");
     if (!c) return;
     var s = _resolveState(state);
     var pp = s.playerPos;
@@ -393,13 +407,18 @@ FPS.ui = (function () {
     var G = s.G;
     var level = s.level;
 
-    var ctx = c.getContext("2d");
+    if (_radarCanvas !== c || !_radarCtx) {
+      _radarCanvas = c;
+      _radarCtx = c.getContext("2d");
+    }
+    var ctx = _radarCtx;
     if (!ctx) return;
     var w = c.width;
     var h = c.height;
     var cx = w * 0.5;
     var cy = h * 0.5;
     var R = cx - 9;
+    var maxR = R - 3.5;
     var range = 52;
     var scale = R / range;
     var yaw = G.yaw || 0;
@@ -479,21 +498,6 @@ FPS.ui = (function () {
     ctx.arc(cx, cy, R, 0, Math.PI * 2);
     ctx.stroke();
 
-    function toRadar(wx, wz) {
-      var dx = wx - pp.x;
-      var dz = wz - pp.z;
-      var rx = dx * co - dz * sy;
-      var rz = dx * sy + dz * co;
-      var px = cx + rx * scale;
-      var py = cy + rz * scale;
-      var d = Math.hypot(px - cx, py - cy);
-      if (d > R - 3.5) {
-        px = cx + ((px - cx) / d) * (R - 3.5);
-        py = cy + ((py - cy) / d) * (R - 3.5);
-      }
-      return [px, py];
-    }
-
     // Fire zones
     var fz = s.fireZones;
     if (fz && fz.length) {
@@ -501,9 +505,9 @@ FPS.ui = (function () {
       ctx.lineWidth = 1.3;
       for (var fi = 0; fi < fz.length; fi++) {
         if (!fz[fi].active) continue;
-        var fp = toRadar(fz[fi].x, fz[fi].z);
+        var fp = _toRadar(fz[fi].x, fz[fi].z, pp.x, pp.z, cx, cy, co, sy, scale, maxR);
         ctx.beginPath();
-        ctx.arc(fp[0], fp[1], 3.5, 0, Math.PI * 2);
+        ctx.arc(fp.x, fp.y, 3.5, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
@@ -514,14 +518,14 @@ FPS.ui = (function () {
       for (var bi = 0; bi < br.length; bi++) {
         var b = br[bi];
         if (!b || b.alive === false) continue;
-        var bp = toRadar(b.x, b.z);
+        var bp = _toRadar(b.x, b.z, pp.x, pp.z, cx, cy, co, sy, scale, maxR);
         ctx.fillStyle = "#1c0509";
         ctx.beginPath();
-        ctx.arc(bp[0], bp[1], 3.1, 0, Math.PI * 2);
+        ctx.arc(bp.x, bp.y, 3.1, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = "#dc143c";
         ctx.beginPath();
-        ctx.arc(bp[0], bp[1], 2.2, 0, Math.PI * 2);
+        ctx.arc(bp.x, bp.y, 2.2, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -532,22 +536,22 @@ FPS.ui = (function () {
       for (var si = 0; si < spList.length; si++) {
         var sp = spList[si];
         if (!sp || sp.alive === false || (sp.cd !== undefined && sp.cd > 0) || (sp.respawnT !== undefined && sp.respawnT > 0)) continue;
-        var spt = toRadar(sp.x, sp.z);
+        var spt = _toRadar(sp.x, sp.z, pp.x, pp.z, cx, cy, co, sy, scale, maxR);
         ctx.fillStyle = "#081a0e";
-        ctx.fillRect(spt[0] - 3.6, spt[1] - 3.6, 7.2, 7.2);
+        ctx.fillRect(spt.x - 3.6, spt.y - 3.6, 7.2, 7.2);
         ctx.fillStyle = "#3eff8b";
-        ctx.fillRect(spt[0] - 2.6, spt[1] - 2.6, 5.2, 5.2);
+        ctx.fillRect(spt.x - 2.6, spt.y - 2.6, 5.2, 5.2);
       }
     }
 
     // Extraction beacon diamond
     if (level && level.extractPos) {
-      var ep = toRadar(level.extractPos.x, level.extractPos.z);
+      var ep = _toRadar(level.extractPos.x, level.extractPos.z, pp.x, pp.z, cx, cy, co, sy, scale, maxR);
       var unlocked = !!G.portalUnlocked;
       var pulse = 0.78 + 0.22 * Math.sin(nowMs * 0.008);
       var sz = unlocked ? 5.2 : 4.2;
       ctx.save();
-      ctx.translate(ep[0], ep[1]);
+      ctx.translate(ep.x, ep.y);
       ctx.rotate(Math.PI * 0.25);
       ctx.fillStyle = unlocked ? "rgba(45,255,136," + pulse.toFixed(2) + ")" : "rgba(255,168,51,0.9)";
       ctx.strokeStyle = "#04140a";
@@ -561,13 +565,14 @@ FPS.ui = (function () {
     var zb = s.zombies;
     if (zb && zb.length) {
       var zPulse = 0.72 + 0.28 * Math.sin(nowMs * 0.01);
+      var zCol = "rgba(255,82,72," + zPulse.toFixed(2) + ")";
       for (var zi = 0; zi < zb.length; zi++) {
         var z = zb[zi];
         if (!z || z.dead || !z.group) continue;
-        var zp = toRadar(z.group.position.x, z.group.position.z);
-        ctx.fillStyle = z.isBoss ? "#ff2a1f" : "rgba(255,82,72," + zPulse.toFixed(2) + ")";
+        var zp = _toRadar(z.group.position.x, z.group.position.z, pp.x, pp.z, cx, cy, co, sy, scale, maxR);
+        ctx.fillStyle = z.isBoss ? "#ff2a1f" : zCol;
         ctx.beginPath();
-        ctx.arc(zp[0], zp[1], z.isBoss ? 3.8 : 2.1, 0, Math.PI * 2);
+        ctx.arc(zp.x, zp.y, z.isBoss ? 3.8 : 2.1, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -600,7 +605,7 @@ FPS.ui = (function () {
   }
 
   function updateExtractMarker(state) {
-    var el = document.getElementById("extractMarker");
+    var el = _el("extractMarker");
     if (!el) return;
     var s = _resolveState(state);
     var G = s.G;
@@ -658,18 +663,18 @@ FPS.ui = (function () {
     sx = Math.max(margin, Math.min(W - margin, sx));
     sy = Math.max(margin, Math.min(H - margin, sy));
 
-    el.style.left = sx.toFixed(1) + "px";
-    el.style.top = sy.toFixed(1) + "px";
+    _setStyle("extractMarker", "left", sx.toFixed(1) + "px");
+    _setStyle("extractMarker", "top", sy.toFixed(1) + "px");
     _toggleHidden("extractMarker", false);
     _toggleCls("extractMarker", "unlocked", !!G.portalUnlocked);
     _toggleCls("extractMarker", "offscreen", offscreen);
   }
 
   function announce(big, sub, durationMs) {
-    var a = document.getElementById("announce");
+    var a = _el("announce");
     if (!a) return;
-    var bEl = document.getElementById("annBig");
-    var sEl = document.getElementById("annSub");
+    var bEl = _el("annBig");
+    var sEl = _el("annSub");
     if (bEl) bEl.textContent = big || "";
     if (sEl) sEl.textContent = sub || "";
     a.style.opacity = 1;
@@ -680,7 +685,7 @@ FPS.ui = (function () {
   }
 
   function showToast(msg, durationMs) {
-    var el = document.getElementById("noteToast");
+    var el = _el("noteToast");
     if (!el) return;
     el.textContent = msg || "";
     el.classList.add("show");
@@ -691,7 +696,7 @@ FPS.ui = (function () {
   }
 
   function showHitmarker(kill) {
-    var h = document.getElementById("hitmarker");
+    var h = _el("hitmarker");
     if (!h) return;
     h.className = kill ? "kill" : "";
     h.style.opacity = 1;
@@ -702,15 +707,15 @@ FPS.ui = (function () {
   }
 
   function setDamageDir(fromX, fromZ, playerPos, yaw) {
-    var fs = FPS.state || {};
+    var fs = FPS.state || _emptyObj;
     var pp = playerPos || fs.playerPos;
     var yw = yaw !== undefined ? yaw : (fs.G ? fs.G.yaw : 0);
     if (fromX === undefined || !pp) return;
     var ddx = fromX - pp.x;
     var ddz = fromZ - pp.z;
     var ang = Math.atan2(ddx * Math.cos(yw) + ddz * (-Math.sin(yw)), ddx * (-Math.sin(yw)) + ddz * (-Math.cos(yw))) * 180 / Math.PI;
-    var de = document.getElementById("dmgDir");
-    var rot = document.getElementById("dmgDirRot");
+    var de = _el("dmgDir");
+    var rot = _el("dmgDirRot");
     if (rot) rot.style.transform = "rotate(" + ang.toFixed(1) + "deg)";
     if (de) {
       de.style.opacity = 1;
@@ -722,7 +727,7 @@ FPS.ui = (function () {
   }
 
   function showLevelClear(levelDef, onPickPerk) {
-    var g = (FPS.state && FPS.state.G) || {};
+    var g = (FPS.state && FPS.state.G) || _emptyObj;
     g.state = "levelclear";
     document.body.classList.remove("playing");
     if (document.exitPointerLock) {
@@ -734,12 +739,12 @@ FPS.ui = (function () {
 
     var L = FPS.LANG || "vi";
     var lvName = levelDef ? (L === "en" ? (levelDef.nameEn || levelDef.nameVi) : (levelDef.nameVi || levelDef.nameEn)) : "";
-    var titleEl = document.getElementById("lvClearTitle");
-    var subEl = document.getElementById("lvClearSub");
+    var titleEl = _el("lvClearTitle");
+    var subEl = _el("lvClearSub");
     if (titleEl) titleEl.textContent = _t("levelClear", "HOÀN THÀNH MÀN!", "STAGE CLEARED!") + (lvName ? " · " + lvName : "");
     if (subEl) subEl.textContent = _t("levelClearSub", "Chọn 1 nâng cấp chiến thuật trước khi tiến sang màn tiếp theo", "Pick 1 tactical perk before deploying to the next stage");
 
-    var wrap = document.getElementById("perkCards");
+    var wrap = _el("perkCards");
     if (wrap) {
       wrap.innerHTML = "";
       var pool = Array.isArray(FPS.PERKS) ? FPS.PERKS.slice() : [];
@@ -762,7 +767,7 @@ FPS.ui = (function () {
           btn.querySelector("h3").textContent = pName;
           btn.querySelector("p").textContent = pDesc;
           btn.onclick = function () {
-            var scr = document.getElementById("levelClearScr");
+            var scr = _el("levelClearScr");
             if (scr) scr.classList.add("hidden");
             if (typeof onPickPerk === "function") onPickPerk(perk);
           };
@@ -771,7 +776,7 @@ FPS.ui = (function () {
       }
     }
 
-    var scr = document.getElementById("levelClearScr");
+    var scr = _el("levelClearScr");
     if (scr) scr.classList.remove("hidden");
     updateHUD();
   }
@@ -786,13 +791,13 @@ FPS.ui = (function () {
     _toggleHidden("extractBarWrap", true);
 
     var isWin = (typeof win === "object" && win !== null) ? !!win.win : !!win;
-    var st = (typeof win === "object" && win !== null) ? win : (state || (FPS.state && FPS.state.G) || {});
+    var st = (typeof win === "object" && win !== null) ? win : (state || (FPS.state && FPS.state.G) || _emptyObj);
     var score = Math.floor(st.score || 0);
     var kills = st.kills !== undefined ? st.kills : (st.totalKills || 0);
     var levelNum = st.level !== undefined ? st.level : ((st.levelIdx || 0) + 1);
     var timeSec = st.time || 0;
 
-    var et = document.getElementById("endTitle");
+    var et = _el("endTitle");
     if (et) {
       et.textContent = isWin ? _t("winT", "CHIẾN DỊCH HOÀN TẤT!", "CAMPAIGN COMPLETE!") : _t("loseT", "BẠN ĐÃ GỤC NGÃ", "YOU HAVE FALLEN");
       et.className = "title" + (isWin ? " win" : "");
@@ -803,7 +808,7 @@ FPS.ui = (function () {
     _setTxt("eLevel", String(levelNum));
     _setTxt("eTime", fmtTime(timeSec));
 
-    var endScr = document.getElementById("endScr");
+    var endScr = _el("endScr");
     if (endScr) endScr.classList.remove("hidden");
   }
 
@@ -813,7 +818,7 @@ FPS.ui = (function () {
     var lb = await FPSApi.loadLeaderboard();
     if (prof && prof.lang) applyLang(prof.lang);
 
-    var el = document.getElementById("lbBox");
+    var el = _el("lbBox");
     if (el) {
       var L = FPS.LANG || "vi";
       var top = lb && lb[0]
