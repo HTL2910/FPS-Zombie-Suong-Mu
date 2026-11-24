@@ -1,5 +1,5 @@
 "use strict";
-var G={state:'menu',hp:100,maxHp:100,score:0,kills:0,wave:0,time:0,dmgMul:1,rateMul:1,speedMul:1,reloadMul:1,armor:0,yaw:0,pitch:0,vy:0,grounded:true,lastShot:0,reloading:false,reloadEnd:0,shake:0,bobT:0,flashOn:true,mouseDown:false,keys:{},startTime:0};
+var G={state:'menu',hp:100,maxHp:100,score:0,kills:0,wave:0,time:0,dmgMul:1,rateMul:1,speedMul:1,reloadMul:1,armor:0,yaw:0,pitch:0,vy:0,grounded:true,lastShot:0,reloading:false,reloadEnd:0,shake:0,bobT:0,flashOn:true,mouseDown:false,keys:{},startTime:0,stamina:100,stamLock:false,flareCd:0,xhairKick:0};
 var playerPos=new THREE.Vector3(0,1.7,40);
 var spawnTimer=0,bossRef=null,waveActive=false,groanTimer=3,scareTimer=14,hurtCd=0,pendingSpawns=[];
 var gunDip=0,switchT=0,heartTimer=0,bigScareCd=0,crowTimer=9;
@@ -57,9 +57,10 @@ function clearZombies(){
   for(var i=0;i<pickups.length;i++)scene.remove(pickups[i].g);pickups=[];
 }
 function resetPlayer(){
-  clearZombies();G.hp=100;G.maxHp=100;G.score=0;G.kills=0;G.wave=0;G.time=0;G.dmgMul=1;G.rateMul=1;G.speedMul=1;G.reloadMul=1;G.armor=0;G.yaw=0;G.pitch=0;G.reloading=false;G.shake=0;bossRef=null;
-  resetWeapons();curWeapon='pistol';buildGun('pistol');playerPos.set(0,1.7,40);visitedZones={};curZone='';buildNotes();
+  clearZombies();clearFireZones();G.hp=100;G.maxHp=100;G.score=0;G.kills=0;G.wave=0;G.time=0;G.dmgMul=1;G.rateMul=1;G.speedMul=1;G.reloadMul=1;G.armor=0;G.yaw=0;G.pitch=0;G.reloading=false;G.shake=0;G.stamina=100;G.stamLock=false;G.flareCd=0;G.xhairKick=0;bossRef=null;
+  resetWeapons();curWeapon='pistol';buildGun('pistol');playerPos.set(0,1.7,40);visitedZones={};curZone='';buildNotes();buildSupplies();
   document.getElementById('bossWrap').classList.add('hidden');
+  updateReloadBar(performance.now());updateCrosshair();
 }
 function startGame(){
   initAudio();startAmbient();resetPlayer();
@@ -79,9 +80,9 @@ document.getElementById('btnStoryGo').onclick=function(){
 document.getElementById('btnStart').onclick=startGame;
 document.getElementById('btnStory').onclick=function(){document.getElementById('menu').classList.add('hidden');document.getElementById('storyScr').classList.remove('hidden');};
 
-function pauseGame(){if(G.state!=='playing')return;G.state='paused';document.body.classList.remove('playing');if(document.exitPointerLock)document.exitPointerLock();document.getElementById('pauseScr').classList.remove('hidden');updateLockHint();}
+function pauseGame(){if(G.state!=='playing')return;G.state='paused';document.body.classList.remove('playing');if(document.exitPointerLock)document.exitPointerLock();document.getElementById('pauseScr').classList.remove('hidden');updateReloadBar(performance.now());updateLockHint();}
 function resumeGame(){if(G.state!=='paused')return;document.getElementById('pauseScr').classList.add('hidden');G.state='playing';document.body.classList.add('playing');lockPointer();updateLockHint();}
-function toMenu(){clearZombies();G.state='menu';document.body.classList.remove('playing');if(document.exitPointerLock)document.exitPointerLock();['hud','pauseScr','endScr','upgradeScr','storyScr'].forEach(function(id){document.getElementById(id).classList.add('hidden');});document.getElementById('menu').classList.remove('hidden');syncBackendUI();}
+function toMenu(){clearZombies();clearFireZones();G.state='menu';document.body.classList.remove('playing');if(document.exitPointerLock)document.exitPointerLock();['hud','pauseScr','endScr','upgradeScr','storyScr'].forEach(function(id){document.getElementById(id).classList.add('hidden');});document.getElementById('menu').classList.remove('hidden');updateReloadBar(performance.now());syncBackendUI();}
 function endGame(win){
   G.state='end';document.body.classList.remove('playing');if(document.exitPointerLock)document.exitPointerLock();
   var et=document.getElementById('endTitle');et.textContent=win?t('winT'):t('loseT');et.className='title'+(win?' win':'');
@@ -124,13 +125,14 @@ document.addEventListener('keydown',function(e){
     if(e.code==='Digit1')switchWeapon('pistol');if(e.code==='Digit2')switchWeapon('shotgun');
     if(e.code==='Digit3')switchWeapon('rifle');if(e.code==='Digit4')switchWeapon('thuanthien');
     if(e.code==='KeyF'){G.flashOn=!G.flashOn;flashlight.visible=G.flashOn;updateWeaponLabel();}
+    if(e.code==='KeyG')throwFlare();
     if(e.code==='KeyP'||e.code==='Escape')pauseGame();
     if(e.code==='Space'&&G.grounded){G.vy=5.4;G.grounded=false;e.preventDefault();}
   }else if(G.state==='paused'&&e.code==='KeyP')resumeGame();
 });
 document.addEventListener('keyup',function(e){G.keys[e.code]=false;});
 document.addEventListener('mousemove',function(e){if((isLocked()||plFallback)&&G.state==='playing'){G.yaw-=e.movementX*0.0021;G.pitch-=e.movementY*0.0021;G.pitch=Math.max(-1.35,Math.min(1.35,G.pitch));}});
-document.addEventListener('mousedown',function(e){if(e.button!==0||G.state!=='playing'||e.target.closest('button'))return;if(!isLocked()&&!document.body.classList.contains('touch')){lockPointer();if(!plFallback)return;}G.mouseDown=true;shoot();});
+document.addEventListener('mousedown',function(e){if(e.button!==0||G.state!=='playing'||e.target.closest('button, #flareChip'))return;if(!isLocked()&&!document.body.classList.contains('touch')){lockPointer();if(!plFallback)return;}G.mouseDown=true;shoot();});
 document.addEventListener('mouseup',function(){G.mouseDown=false;});
 document.addEventListener('pointerlockchange',function(){var _now=isLocked();if(_now){plHeld=true;plFallback=false;}else{if(plHeld&&G.state==='playing'&&!document.body.classList.contains('touch'))pauseGame();plHeld=false;}updateLockHint();});
 
@@ -142,6 +144,9 @@ bindBtn('btnFire',function(){G.mouseDown=true;shoot();},function(){G.mouseDown=f
 bindBtn('btnReload',startReload);bindBtn('btnJump',function(){if(G.grounded&&G.state==='playing'){G.vy=5.4;G.grounded=false;}});
 bindBtn('btnWeapon',function(){switchWeapon(curWeapon==='pistol'?'shotgun':(curWeapon==='shotgun'?'rifle':(curWeapon==='rifle'?'thuanthien':'pistol')));});
 bindBtn('btnFlash',function(){G.flashOn=!G.flashOn;flashlight.visible=G.flashOn;updateWeaponLabel();});
+bindBtn('btnFlare',throwFlare);
+var _bf=document.getElementById('btnFlare');if(_bf)_bf.addEventListener('click',function(e){e.preventDefault();throwFlare();});
+var _fc=document.getElementById('flareChip');if(_fc){_fc.addEventListener('click',function(){throwFlare();});_fc.addEventListener('touchstart',function(e){e.preventDefault();throwFlare();},{passive:false});}
 bindBtn('btnPauseM',function(){if(G.state==='playing')pauseGame();else if(G.state==='paused')resumeGame();});
 joyEl.addEventListener('touchstart',function(e){e.preventDefault();joyTouch=e.changedTouches[0].identifier;},{passive:false});
 document.addEventListener('touchmove',function(e){
@@ -177,20 +182,38 @@ function animate(){
   var dt=Math.min(clock.getDelta(),0.05),playing=(G.state==='playing');
   if(playing){
     G.time=(now-G.startTime)/1000;
-    var run=G.keys['ShiftLeft']||G.keys['ShiftRight'],spd=(run?7.4:4.4)*G.speedMul;
+    var wantRun=!!(G.keys['ShiftLeft']||G.keys['ShiftRight']);
     var fx=-Math.sin(G.yaw),fz=-Math.cos(G.yaw),rx=Math.cos(G.yaw),rz=-Math.sin(G.yaw),mx=0,mz=0;
     if(G.keys['KeyW']){mx+=fx;mz+=fz;}if(G.keys['KeyS']){mx-=fx;mz-=fz;}if(G.keys['KeyA']){mx-=rx;mz-=rz;}if(G.keys['KeyD']){mx+=rx;mz+=rz;}
     mx+=rx*joyVec.x+fx*(-joyVec.y);mz+=rz*joyVec.x+fz*(-joyVec.y);
-    var ml=Math.hypot(mx,mz);if(ml>0.01){mx/=Math.max(1,ml);mz/=Math.max(1,ml);playerPos.x+=mx*spd*dt;playerPos.z+=mz*spd*dt;G.bobT+=dt*(run?11:8);}else G.bobT+=dt*2;
+    var ml=Math.hypot(mx,mz);
+    var run=wantRun&&ml>0.01&&!G.stamLock&&G.stamina>0;
+    if(run){G.stamina=Math.max(0,G.stamina-28*dt);if(G.stamina<=0){G.stamina=0;G.stamLock=true;}}
+    else{G.stamina=Math.min(100,G.stamina+(ml>0.01?16:24)*dt);if(G.stamLock&&G.stamina>15)G.stamLock=false;}
+    var spd=(run?7.4:4.4)*G.speedMul;
+    if(ml>0.01){mx/=Math.max(1,ml);mz/=Math.max(1,ml);playerPos.x+=mx*spd*dt;playerPos.z+=mz*spd*dt;G.bobT+=dt*(run?11:8);}else G.bobT+=dt*2;
     collide(playerPos,0.55);
     G.vy-=14*dt;playerPos.y+=G.vy*dt;if(playerPos.y<=1.7){playerPos.y=1.7;G.vy=0;G.grounded=true;}
     if(G.mouseDown&&WEAPONS[curWeapon].auto)shoot();
     if(G.reloading&&now>=G.reloadEnd)finishReload();
+    if(G.flareCd>0)G.flareCd=Math.max(0,G.flareCd-dt);
+    updateFireZones(dt,now);
     if(pendingSpawns.length){spawnTimer-=dt;if(spawnTimer<=0){spawnTimer=Math.max(0.35,1.1-G.wave*0.06);spawnZombie(pendingSpawns.shift());}}
     if(waveActive&&!pendingSpawns.length&&zombies.every(function(z){return z.dead;})){waveActive=false;if(G.wave>=10)endGame(true);else setTimeout(function(){if(G.state==='playing')showUpgrades();},900);}
     if((_frameNo%12)===0)checkZone();
     groanTimer-=dt;if(groanTimer<=0){groanTimer=3+Math.random()*4;if(zombies.some(function(z){return !z.dead;}))sfxGroan();}
     scareTimer-=dt;bigScareCd=Math.max(0,bigScareCd-dt);if(scareTimer<=0){scareTimer=45+Math.random()*25;runScareScheduler();}
+    for(var si=0;si<supplies.length;si++){
+      var sp=supplies[si];
+      if(sp.cd>0){sp.cd=Math.max(0,sp.cd-dt);if(sp.cd<=0)sp.g.visible=true;continue;}
+      sp.t+=dt*2.4;sp.box.position.y=0.34+Math.sin(sp.t)*0.06;sp.ring.rotation.z+=dt*1.1;
+      if(Math.hypot(sp.x-playerPos.x,sp.z-playerPos.z)<1.85){
+        sp.cd=45;sp.g.visible=false;heal(45);
+        wState.shotgun.reserve=Math.min(WEAPONS.shotgun.reserve,wState.shotgun.reserve+12);
+        wState.rifle.reserve=Math.min(WEAPONS.rifle.reserve,wState.rifle.reserve+45);
+        sfxPickup();announce('',t('pickSupply'));updateHUD();
+      }
+    }
     for(var i=pickups.length-1;i>=0;i--){
       var pk=pickups[i];pk.t+=dt*3;pk.g.position.y=Math.sin(pk.t)*0.06;pk.g.rotation.y+=dt*1.5;
       if(Math.hypot(pk.g.position.x-playerPos.x,pk.g.position.z-playerPos.z)<1.3){
@@ -227,6 +250,7 @@ function animate(){
     z.barFg.scale.x=Math.max(0,z.hp/z.maxHp);
     if(z.graceT>0)z.graceT-=dt;if(z.atkCd>0)z.atkCd-=dt;
     if(z.spawnT<=0&&z.graceT<=0&&dist<1.45*z.group.scale.x&&z.atkCd<=0){z.atkCd=0.85;z.atkT=0.32;hurtPlayer(z.dmg,gp.x,gp.z);}
+    if(z.isBoss&&z.spawnT<=0){z.roarT-=dt;if(z.roarT<=0)triggerBossRoar(z);}
     if(z.isBoss&&bossRef===z){document.getElementById('bossWrap').classList.remove('hidden');document.getElementById('bossBar').style.width=Math.max(0,z.hp/z.maxHp*100)+'%';}
   }
   // FX pools update
@@ -254,6 +278,9 @@ function animate(){
   gunGroup.position.z+=(-0.62-gunGroup.position.z)*Math.min(1,dt*14);
   if(gunParts.flash&&gunParts.flash.material.opacity>0)gunParts.flash.material.opacity=Math.max(0,gunParts.flash.material.opacity-dt*9);
   muzzleLight.intensity=Math.max(0,muzzleLight.intensity-dt*520);
+  if(G.xhairKick>0)G.xhairKick=Math.max(0,G.xhairKick-dt*5.5);
+  updateCrosshair();updateReloadBar(now);
+  if(playing&&(_frameNo%3)===0)updateHUD();
 
   renderer.render(scene,camera);
   gunCam.fov=camera.fov;if(gunCam.aspect!==camera.aspect)gunCam.aspect=camera.aspect;gunCam.updateProjectionMatrix();
@@ -261,5 +288,29 @@ function animate(){
   renderer.autoClear=false;renderer.clearDepth();renderer.render(gunScene,gunCam);renderer.autoClear=true;
 }
 
+window.__fpsTest={
+  throwFlare:function(){return throwFlare();},
+  getState:function(){
+    var activeFireZones=0;for(var i=0;i<fireZones.length;i++)if(fireZones[i].active)activeFireZones++;
+    var readySupplies=0;for(var j=0;j<supplies.length;j++)if(supplies[j].cd<=0)readySupplies++;
+    var pointLights=0;
+    scene.traverse(function(o){if(o.isPointLight)pointLights++;});
+    gunScene.traverse(function(o){if(o.isPointLight)pointLights++;});
+    var zAlive=0;for(var k=0;k<zombies.length;k++)if(!zombies[k].dead)zAlive++;
+    return {
+      state:G.state,wave:G.wave,hp:G.hp,maxHp:G.maxHp,
+      stamina:+G.stamina.toFixed(1),stamLock:!!G.stamLock,
+      flareCd:+G.flareCd.toFixed(2),activeFireZones:activeFireZones,
+      curWeapon:curWeapon,reloading:!!G.reloading,
+      zone:curZone||zoneKeyFor(playerPos.x,playerPos.z),
+      zoneName:t(curZone||zoneKeyFor(playerPos.x,playerPos.z)),
+      playerPos:{x:+playerPos.x.toFixed(2),y:+playerPos.y.toFixed(2),z:+playerPos.z.toFixed(2)},
+      suppliesTotal:supplies.length,suppliesReady:readySupplies,
+      notesLeft:notes.length,notesFound:notesFound,
+      zombiesAlive:zAlive,bossRoarCd:bossRef?+bossRef.roarT.toFixed(2):null,
+      pointLights:pointLights,arena:ARENA
+    };
+  }
+};
 addEventListener('resize',function(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 applyLang();updateHUD();syncBackendUI();loadAllWorldGLBs();animate();

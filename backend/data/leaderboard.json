@@ -1,3 +1,18 @@
 [
-  { "name": "Linh Hunter", "score": 12400, "wave": 10, "kills": 148, "win": true, "date": "2026-11-22" }
+  {
+    "name": "Linh Hunter",
+    "score": 12400,
+    "wave": 10,
+    "kills": 148,
+    "win": true,
+    "date": "2026-11-22"
+  },
+  {
+    "name": "Player",
+    "score": 100,
+    "wave": 1,
+    "kills": 1,
+    "win": false,
+    "date": "2026-11-24"
+  }
 ]

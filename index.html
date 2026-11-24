@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"/>
 <meta name="color-scheme" content="dark"/>
 <link rel="icon" href="data:,"/>
-<title>FPS Zombie Sương Mù v7.0</title>
+<title>FPS Zombie Sương Mù v7.2</title>
 <link rel="stylesheet" href="frontend/css/style.css"/>
 </head>
 <body>
@@ -16,17 +16,20 @@
 <div id="hud" class="hidden">
   <div id="bossWrap" class="hidden"><div id="bossName">BOSS</div><div id="bossBarBg"><div id="bossBar"></div></div></div>
   <div id="qBadge">Q: AUTO · TRUNG</div>
-  <div id="verHud">BUILD v7.0</div>
+  <div id="verHud">BUILD v7.2</div>
   <div id="hudTL" class="hudChip"><span data-i="wave">Wave</span> <b id="hWave">1</b>/10 · <span data-i="left">Còn lại</span> <b id="hLeft">0</b></div>
   <div id="hudTR" class="hudChip"><span data-i="score">Điểm</span> <b id="hScore">0</b> · <span data-i="kills">Hạ</span> <b id="hKills">0</b> · 📄 <b id="hNotes">0</b>/8</div>
-  <canvas id="fpsRadar" width="104" height="104"></canvas>
+  <div id="radarBox">
+    <canvas id="fpsRadar" width="104" height="104"></canvas>
+    <div id="radarZone" class="hudChip">Nghĩa Địa Cổ</div>
+  </div>
   <div id="announce"><div class="big" id="annBig"></div><div class="sub" id="annSub"></div></div>
   <div id="zoneBanner"><div class="zbName" id="zbName"></div><div class="zbSub" data-i="zoneSub">Làng Hạ Đồn</div></div>
   <div id="noteToast"></div>
   <div id="lockHint" class="hidden">🖱 Click vào màn hình để khóa chuột — di chuột để ngắm · Esc để thả chuột</div>
-  <div id="crosshair"></div><div id="hitmarker"></div><div id="dmgDir"><div id="dmgDirRot"><div id="dmgDirArc"></div></div></div>
-  <div id="hudBL"><div id="hpWrap"><div id="hpBar"></div></div><div id="hpText">HP 100 / 100</div></div>
-  <div id="hudBR"><div id="wname">Pistol</div><div id="ammo">12 <small>/ ∞</small></div><div id="reloadHint"></div></div>
+  <div id="crosshair"></div><div id="reloadBarWrap" class="hidden"><div id="reloadBarFill"></div></div><div id="hitmarker"></div><div id="dmgDir"><div id="dmgDirRot"><div id="dmgDirArc"></div></div></div>
+  <div id="hudBL"><div id="hpWrap"><div id="hpBar"></div></div><div id="stamWrap"><div id="stamBar"></div></div><div id="hpText">HP 100 / 100</div></div>
+  <div id="hudBR"><div id="flareChip" class="hudChip">🔥 G: Sẵn Sàng</div><div id="wname">Pistol</div><div id="ammo">12 <small>/ ∞</small></div><div id="reloadHint"></div></div>
 </div>
 
 <!-- Mobile -->
@@ -37,6 +40,7 @@
   <button class="mbtn" id="btnJump" data-i="mJump">NHẢY</button>
   <button class="mbtn" id="btnWeapon" data-i="mWeapon">SÚNG</button>
   <button class="mbtn" id="btnFlash" data-i="mFlash">ĐÈN</button>
+  <button class="mbtn" id="btnFlare" data-i="mFlare">LỬA</button>
   <button class="mbtn" id="btnPauseM">II</button>
 </div>
 
@@ -44,7 +48,7 @@
 <div class="overlay" id="menu">
  <div class="menuCard">
   <div class="menuTop">
-    <div id="verBadge">v7.0 · MODULAR 60-FPS ENGINE · 1·2·3·4 (THUẬN THIÊN KIẾM)</div>
+    <div id="verBadge">v7.2 · MODULAR 60-FPS ENGINE · 1·2·3·4 (THUẬN THIÊN KIẾM)</div>
     <div class="langrow"><button id="langVi" class="on">VI</button><button id="langEn">EN</button></div>
   </div>
   <h1 class="title">ZOMBIE <span data-i="fog">SƯƠNG MÙ</span></h1>
@@ -60,6 +64,7 @@
       <div class="krow"><b>R</b><span data-i="kReload">Nạp đạn</span></div>
       <div class="krow"><b>1·2·3·4</b><span data-i="kWeapon">Đổi vũ khí</span></div>
       <div class="krow"><b>F</b><span data-i="kFlash">Đèn pin</span></div>
+      <div class="krow"><b>G</b><span data-i="kFlare">Bom Lửa Thánh (12s)</span></div>
       <div class="krow"><b>P/ESC</b><span data-i="kPause">Tạm dừng</span></div>
       <div class="krow"><b>10</b><span data-i="goalShort">Wave · Boss ở 5 &amp; 10</span></div>
     </div>
