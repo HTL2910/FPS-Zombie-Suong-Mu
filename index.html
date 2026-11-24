@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"/>
 <meta name="color-scheme" content="dark"/>
 <link rel="icon" href="data:,"/>
-<title>FPS Zombie Sương Mù v7.2</title>
+<title>FPS Zombie Sương Mù v8.0</title>
 <link rel="stylesheet" href="frontend/css/style.css"/>
 </head>
 <body>
@@ -14,20 +14,39 @@
 
 <!-- HUD -->
 <div id="hud" class="hidden">
-  <div id="bossWrap" class="hidden"><div id="bossName">BOSS</div><div id="bossBarBg"><div id="bossBar"></div></div></div>
-  <div id="qBadge">Q: AUTO · TRUNG</div>
-  <div id="verHud">BUILD v7.2</div>
-  <div id="hudTL" class="hudChip"><span data-i="wave">Wave</span> <b id="hWave">1</b>/10 · <span data-i="left">Còn lại</span> <b id="hLeft">0</b></div>
-  <div id="hudTR" class="hudChip"><span data-i="score">Điểm</span> <b id="hScore">0</b> · <span data-i="kills">Hạ</span> <b id="hKills">0</b> · 📄 <b id="hNotes">0</b>/8</div>
-  <div id="radarBox">
-    <canvas id="fpsRadar" width="104" height="104"></canvas>
-    <div id="radarZone" class="hudChip">Nghĩa Địa Cổ</div>
+  <div id="hudTopLeft">
+    <div id="hudTL" class="hudChip"><span data-i="level">Màn</span> <b id="hLevel">1</b>/5 · <span data-i="score">Điểm</span> <b id="hScore">0</b></div>
+    <div id="hudMeta"><span id="qBadge">Q: AUTO · TRUNG</span><span id="verHud">BUILD v8.0</span></div>
+    <div id="missionBox" class="hudChip">
+      <div id="missionTitle">Màn 1: Ngõ Cụt Sương Mù</div>
+      <div id="missionQuota">💀 Tiêu diệt: 0 / 14</div>
+      <div id="missionBarBg"><div id="missionBar"></div></div>
+    </div>
   </div>
+
+  <div id="bossWrap" class="hidden"><div id="bossName">BOSS</div><div id="bossBarBg"><div id="bossBar"></div></div></div>
   <div id="announce"><div class="big" id="annBig"></div><div class="sub" id="annSub"></div></div>
   <div id="zoneBanner"><div class="zbName" id="zbName"></div><div class="zbSub" data-i="zoneSub">Làng Hạ Đồn</div></div>
+
+  <div id="hudTR" class="hudChip"><span data-i="kills">Hạ</span> <b id="hKills">0</b> · 🛢 <b id="hBarrels">0</b></div>
+  <div id="radarBox">
+    <canvas id="fpsRadar" width="112" height="112"></canvas>
+    <div id="radarZone" class="hudChip">Màn 1</div>
+  </div>
+
+  <div id="extractMarker" class="hidden"><span class="emIcon">🌀</span><span id="extractDist">28m</span></div>
+  <div id="extractBarWrap" class="hidden">
+    <div id="extractBarTxt">ĐANG THOÁT HIỂM... 0%</div>
+    <div id="extractBarBg"><div id="extractBarFill"></div></div>
+  </div>
+
+  <div id="crosshair"></div>
+  <div id="reloadBarWrap" class="hidden"><div id="reloadBarFill"></div></div>
+  <div id="hitmarker"></div>
+  <div id="dmgDir"><div id="dmgDirRot"><div id="dmgDirArc"></div></div></div>
   <div id="noteToast"></div>
   <div id="lockHint" class="hidden">🖱 Click vào màn hình để khóa chuột — di chuột để ngắm · Esc để thả chuột</div>
-  <div id="crosshair"></div><div id="reloadBarWrap" class="hidden"><div id="reloadBarFill"></div></div><div id="hitmarker"></div><div id="dmgDir"><div id="dmgDirRot"><div id="dmgDirArc"></div></div></div>
+
   <div id="hudBL"><div id="hpWrap"><div id="hpBar"></div></div><div id="stamWrap"><div id="stamBar"></div></div><div id="hpText">HP 100 / 100</div></div>
   <div id="hudBR"><div id="flareChip" class="hudChip">🔥 G: Sẵn Sàng</div><div id="wname">Pistol</div><div id="ammo">12 <small>/ ∞</small></div><div id="reloadHint"></div></div>
 </div>
@@ -48,47 +67,55 @@
 <div class="overlay" id="menu">
  <div class="menuCard">
   <div class="menuTop">
-    <div id="verBadge">v7.2 · MODULAR 60-FPS ENGINE · 1·2·3·4 (THUẬN THIÊN KIẾM)</div>
+    <div id="verBadge">v8.0 · TACTICAL EXTRACTION FPS · 5 LEVELS</div>
     <div class="langrow"><button id="langVi" class="on">VI</button><button id="langEn">EN</button></div>
   </div>
   <h1 class="title">ZOMBIE <span data-i="fog">SƯƠNG MÙ</span></h1>
-  <p class="tagline" data-i="tag">Đêm nay sương không che được chúng. Chỉ có bạn, khẩu súng và cây đèn pin.</p>
+  <p class="tagline" data-i="tag">Đêm nay sương không che được chúng. Đạt chỉ tiêu, mở cổng thoát hiểm và sống sót qua 5 màn chiến thuật.</p>
+
+  <div class="levelSection">
+    <div class="secHead" data-i="selectStageTitle">Chọn Màn Chiến Dịch</div>
+    <div id="levelGrid"></div>
+  </div>
+
+  <div class="btnrow menuCta">
+    <button class="btn" id="btnStart" data-i="start">Bắt đầu</button>
+    <button class="btn ghost" id="btnStory" data-i="storyBtn">📖 Cốt truyện</button>
+  </div>
+
   <div class="panel">
-    <h2 data-i="how">Cách chơi</h2>
+    <h2 data-i="how">Cách chơi &amp; Thoát Hiểm</h2>
     <div class="keys">
       <div class="krow"><b>W A S D</b><span data-i="kMove">Di chuyển</span></div>
       <div class="krow"><b>SHIFT</b><span data-i="kRun">Chạy nhanh</span></div>
       <div class="krow"><b>SPACE</b><span data-i="kJump">Nhảy</span></div>
-      <div class="krow"><b>MOUSE</b><span data-i="kLook">Nhìn xung quanh</span></div>
-      <div class="krow"><b>CLICK</b><span data-i="kShoot">Bắn (giữ với Rifle)</span></div>
+      <div class="krow"><b>MOUSE</b><span data-i="kLook">Ngắm bắn</span></div>
+      <div class="krow"><b>CLICK</b><span data-i="kShoot">Bắn (giữ Rifle)</span></div>
       <div class="krow"><b>R</b><span data-i="kReload">Nạp đạn</span></div>
       <div class="krow"><b>1·2·3·4</b><span data-i="kWeapon">Đổi vũ khí</span></div>
       <div class="krow"><b>F</b><span data-i="kFlash">Đèn pin</span></div>
       <div class="krow"><b>G</b><span data-i="kFlare">Bom Lửa Thánh (12s)</span></div>
       <div class="krow"><b>P/ESC</b><span data-i="kPause">Tạm dừng</span></div>
-      <div class="krow"><b>10</b><span data-i="goalShort">Wave · Boss ở 5 &amp; 10</span></div>
+      <div class="krow"><b>🛢</b><span data-i="kBarrel">Bắn thùng đỏ kích nổ dây chuyền</span></div>
+      <div class="krow"><b>🌀</b><span data-i="kExtract">Hạ đủ mục tiêu rồi giữ vị trí tại Cổng Thoát Hiểm</span></div>
     </div>
   </div>
+
   <div class="panel setrow">
     <div class="grp"><span>🔊</span><input type="range" id="volSlider" min="0" max="100" value="70"><span id="volVal">70%</span><button id="volMute">Mute</button></div>
     <div class="grp"><span data-i="qLabel">Chất lượng</span><select id="qSel"><option value="auto">Auto</option><option value="high">Cao / High</option><option value="med">Trung / Med</option><option value="low">Thấp / Low</option></select><span id="qFps"></span></div>
   </div>
   <div class="panel lbMini" id="lbBox"><span>Best: 0</span><span>Loading backend...</span></div>
-  <div class="warn">⚠️ Jumpscare tiếng RẤT LỚN — để âm lượng vừa phải · Loud jumpscares — keep volume moderate</div>
-  <div class="btnrow">
-    <button class="btn" id="btnStart" data-i="start">Bắt đầu</button>
-    <button class="btn ghost" id="btnStory" data-i="storyBtn">📖 Cốt truyện</button>
-  </div>
-  <p class="small" data-i="goal">Sống sót qua 10 wave ở làng Hạ Đồn. Nhặt cứu thương, đạn và 5 mẩu ghi chú.</p>
+  <div class="warn" data-i="warnTxt">⚠️ Hiệu ứng âm thanh chiến đấu &amp; jumpscare mạnh — điều chỉnh âm lượng vừa phải</div>
+  <p class="small" data-i="goal">Chinh phục 5 màn chiến thuật ở làng Hạ Đồn: ẩn nấp sau thùng thấp, chặn đạn sau tường cao, kích nổ thùng xăng đỏ dọn bầy xác sống, mở khóa và giữ vị trí tại Cổng Thoát Hiểm.</p>
  </div>
 </div>
 
-<!-- UPGRADE -->
-<div class="overlay hidden" id="upgradeScr">
-  <h1 class="title" style="font-size:clamp(20px,4vw,28px)" data-i="upTitle">Wave hoàn thành!</h1>
-  <p class="tagline" style="margin:4px 0 10px" data-i="upSub">Chọn 1 nâng cấp trước khi sương kéo đến đợt nữa</p>
-  <div id="upStory"></div>
-  <div id="upCards"></div>
+<!-- LEVEL CLEAR / PERK DRAFT -->
+<div class="overlay hidden" id="levelClearScr">
+  <h1 class="title" id="lvClearTitle" data-i="levelClear">HOÀN THÀNH MÀN!</h1>
+  <p class="tagline" id="lvClearSub" style="margin:6px 0 12px" data-i="levelClearSub">Chọn 1 nâng cấp chiến thuật trước khi tiến sang màn tiếp theo</p>
+  <div id="perkCards"></div>
 </div>
 
 <!-- STORY -->
@@ -101,7 +128,7 @@
 <!-- PAUSE -->
 <div class="overlay hidden" id="pauseScr">
   <h1 class="title" style="font-size:clamp(22px,4.5vw,30px);margin-bottom:10px" data-i="paused">Tạm dừng</h1>
-  <div class="qrow" style="margin-bottom:10px"><span>Chất lượng:</span><select id="qSelP"><option value="auto">Auto</option><option value="high">Cao / High</option><option value="med">Trung / Med</option><option value="low">Thấp / Low</option></select><span id="qFpsP"></span></div>
+  <div class="qrow" style="margin-bottom:10px"><span data-i="qLabel">Chất lượng:</span><select id="qSelP"><option value="auto">Auto</option><option value="high">Cao / High</option><option value="med">Trung / Med</option><option value="low">Thấp / Low</option></select><span id="qFpsP"></span></div>
   <div class="btnrow" style="flex-direction:column">
     <button class="btn" id="btnResume" data-i="resume">Tiếp tục</button>
     <button class="btn ghost" id="btnRestart2" data-i="restart">Chơi lại từ đầu</button>
@@ -116,7 +143,7 @@
   <div class="panel" style="max-width:380px"><div class="statgrid">
     <span data-i="sScore">Điểm</span><b id="eScore">0</b>
     <span data-i="sKills">Zombie đã hạ</span><b id="eKills">0</b>
-    <span data-i="sWave">Wave đạt được</span><b id="eWave">0</b>
+    <span data-i="sLevel">Màn đạt được</span><b id="eLevel">1</b>
     <span data-i="sTime">Thời gian sống sót</span><b id="eTime">0:00</b>
   </div></div>
   <div class="btnrow" style="margin-top:12px">
@@ -130,6 +157,7 @@
 <script src="frontend/js/lib/glb_loader.js"></script>
 <script src="frontend/js/api.js"></script>
 <script src="frontend/js/config.js"></script>
+<script src="frontend/js/levels.js"></script>
 <script src="frontend/js/audio.js"></script>
 <script src="frontend/js/world.js"></script>
 <script src="frontend/js/entities.js"></script>

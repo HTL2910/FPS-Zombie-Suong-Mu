@@ -69,23 +69,30 @@ async function handleApi(req, res, apiPath) {
     return;
   }
   if (apiPath === "/api/health" && req.method === "GET") {
-    return sendJson(res, 200, { ok: true, game: "fps-zombie-suong-mu", version: "v7.0" });
+    return sendJson(res, 200, { ok: true, game: "fps-zombie-suong-mu", version: "v8.0" });
   }
   if (apiPath === "/api/config" && req.method === "GET") {
     return sendJson(res, 200, readJson("config.json", {}));
   }
   if (apiPath === "/api/profile" && req.method === "GET") {
-    return sendJson(res, 200, readJson("profile.json", {}));
+    const prof = readJson("profile.json", {});
+    if (prof.highestLevel === undefined) prof.highestLevel = 1;
+    return sendJson(res, 200, prof);
   }
   if (apiPath === "/api/profile" && req.method === "POST") {
     const body = await readBody(req);
     const cur = readJson("profile.json", {});
     const updated = {
-      bestScore: Math.max(cur.bestScore || 0, Number(body.score) || 0),
-      bestWave: Math.max(cur.bestWave || 1, Number(body.wave) || 1),
+      bestScore: Math.max(cur.bestScore || 0, Number(body.score) || Number(body.bestScore) || 0),
+      bestWave: Math.max(cur.bestWave || 1, Number(body.wave) || Number(body.bestWave) || Number(body.level) || 1),
+      highestLevel: Math.max(cur.highestLevel || 1, Number(body.highestLevel) || 1),
       totalKills: (cur.totalKills || 0) + (Number(body.killsDelta) || 0),
       runs: (cur.runs || 0) + (body.completedRun ? 1 : 0),
-      notesDiscovered: Array.from(new Set([...(cur.notesDiscovered || []), ...(Array.isArray(body.notes) ? body.notes : [])])),
+      notesDiscovered: Array.from(new Set([
+        ...(cur.notesDiscovered || []),
+        ...(Array.isArray(body.notes) ? body.notes : []),
+        ...(Array.isArray(body.notesDiscovered) ? body.notesDiscovered : [])
+      ])),
       lang: body.lang || cur.lang || "vi",
       quality: body.quality || cur.quality || "auto"
     };
@@ -98,10 +105,12 @@ async function handleApi(req, res, apiPath) {
   if (apiPath === "/api/leaderboard" && req.method === "POST") {
     const body = await readBody(req);
     const list = readJson("leaderboard.json", []);
+    const lv = Number(body.level) || Number(body.wave) || 1;
     list.push({
       name: String(body.name || "Survivor").slice(0, 24),
       score: Number(body.score) || 0,
-      wave: Number(body.wave) || 1,
+      wave: lv,
+      level: lv,
       kills: Number(body.kills) || 0,
       win: !!body.win,
       date: new Date().toISOString().slice(0, 10)

@@ -1,12 +1,13 @@
 "use strict";
 window.FPSApi = (function () {
-  const LS_KEY = "fps_zombie_profile_v7";
-  const LS_LB_KEY = "fps_zombie_leaderboard_v7";
+  const LS_KEY = "fps_zombie_profile_v8";
+  const LS_LB_KEY = "fps_zombie_leaderboard_v8";
   const IS_STATIC = !!window.__ITCH_STATIC__;
 
   const DEFAULT_PROFILE = {
     bestScore: 0,
     bestWave: 1,
+    highestLevel: 1,
     totalKills: 0,
     runs: 0,
     notesDiscovered: [],
@@ -43,7 +44,8 @@ window.FPSApi = (function () {
     const b = body || {};
     return {
       bestScore: Math.max(cur.bestScore || 0, Number(b.score) || Number(b.bestScore) || 0),
-      bestWave: Math.max(cur.bestWave || 1, Number(b.wave) || Number(b.bestWave) || 1),
+      bestWave: Math.max(cur.bestWave || 1, Number(b.wave) || Number(b.bestWave) || Number(b.level) || 1),
+      highestLevel: Math.max(cur.highestLevel || 1, Number(b.highestLevel) || 1),
       totalKills: (cur.totalKills || 0) + (Number(b.killsDelta) || 0),
       runs: (cur.runs || 0) + (b.completedRun ? 1 : 0),
       notesDiscovered: Array.from(new Set([
@@ -76,6 +78,7 @@ window.FPSApi = (function () {
       const srv = await req("api/profile");
       if (srv) {
         const merged = Object.assign({}, DEFAULT_PROFILE, srv);
+        merged.highestLevel = Math.max(1, Number(merged.highestLevel) || 1);
         saveLocal(merged);
         return merged;
       }
@@ -92,8 +95,10 @@ window.FPSApi = (function () {
         body: JSON.stringify(patch)
       });
       if (srv) {
-        saveLocal(srv);
-        return srv;
+        const merged = Object.assign({}, DEFAULT_PROFILE, srv);
+        merged.highestLevel = Math.max(1, Number(merged.highestLevel) || 1);
+        saveLocal(merged);
+        return merged;
       }
       return updated;
     },
@@ -104,13 +109,16 @@ window.FPSApi = (function () {
     },
 
     async submitScore(entry) {
+      const e = entry || {};
+      const lv = Number(e.level) || Number(e.wave) || 1;
       const list = loadLocalLb();
       list.push({
-        name: String((entry && entry.name) || "Survivor").slice(0, 24),
-        score: Number(entry && entry.score) || 0,
-        wave: Number(entry && entry.wave) || 1,
-        kills: Number(entry && entry.kills) || 0,
-        win: !!(entry && entry.win),
+        name: String(e.name || "Survivor").slice(0, 24),
+        score: Number(e.score) || 0,
+        wave: lv,
+        level: lv,
+        kills: Number(e.kills) || 0,
+        win: !!e.win,
         date: new Date().toISOString().slice(0, 10)
       });
       list.sort((a, b) => b.score - a.score);
@@ -120,7 +128,7 @@ window.FPSApi = (function () {
       const srv = await req("api/leaderboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entry)
+        body: JSON.stringify(e)
       });
       if (srv) {
         saveLocalLb(srv);

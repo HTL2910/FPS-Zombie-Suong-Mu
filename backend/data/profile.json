@@ -1,9 +1,12 @@
 {
-  "bestScore": 100,
+  "bestScore": 500,
   "bestWave": 1,
-  "totalKills": 1,
+  "highestLevel": 2,
+  "totalKills": 9,
   "runs": 1,
-  "notesDiscovered": [],
+  "notesDiscovered": [
+    "note6"
+  ],
   "lang": "vi",
   "quality": "auto"
 }
