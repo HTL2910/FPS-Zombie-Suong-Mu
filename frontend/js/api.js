@@ -1,43 +1,132 @@
 "use strict";
-window.FPSApi = (function(){
+window.FPSApi = (function () {
   const LS_KEY = "fps_zombie_profile_v7";
-  async function req(url, opts){
+  const LS_LB_KEY = "fps_zombie_leaderboard_v7";
+  const IS_STATIC = !!window.__ITCH_STATIC__;
+
+  const DEFAULT_PROFILE = {
+    bestScore: 0,
+    bestWave: 1,
+    totalKills: 0,
+    runs: 0,
+    notesDiscovered: [],
+    lang: "vi",
+    quality: "auto"
+  };
+
+  async function req(url, opts) {
     try {
       const r = await fetch(url, opts);
       if (!r.ok) throw new Error("HTTP " + r.status);
       return await r.json();
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
+
+  function loadLocal() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+      return raw ? Object.assign({}, DEFAULT_PROFILE, raw) : Object.assign({}, DEFAULT_PROFILE);
+    } catch {
+      return Object.assign({}, DEFAULT_PROFILE);
+    }
+  }
+
+  function saveLocal(p) {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(p));
+    } catch {}
+  }
+
+  function mergeProfile(cur, body) {
+    const b = body || {};
+    return {
+      bestScore: Math.max(cur.bestScore || 0, Number(b.score) || Number(b.bestScore) || 0),
+      bestWave: Math.max(cur.bestWave || 1, Number(b.wave) || Number(b.bestWave) || 1),
+      totalKills: (cur.totalKills || 0) + (Number(b.killsDelta) || 0),
+      runs: (cur.runs || 0) + (b.completedRun ? 1 : 0),
+      notesDiscovered: Array.from(new Set([
+        ...(cur.notesDiscovered || []),
+        ...(Array.isArray(b.notes) ? b.notes : []),
+        ...(Array.isArray(b.notesDiscovered) ? b.notesDiscovered : [])
+      ])),
+      lang: b.lang || cur.lang || "vi",
+      quality: b.quality || cur.quality || "auto"
+    };
+  }
+
+  function loadLocalLb() {
+    try {
+      return JSON.parse(localStorage.getItem(LS_LB_KEY) || "[]") || [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveLocalLb(list) {
+    try {
+      localStorage.setItem(LS_LB_KEY, JSON.stringify(list));
+    } catch {}
+  }
+
   return {
-    async loadProfile(){
+    async loadProfile() {
+      if (IS_STATIC) return loadLocal();
       const srv = await req("api/profile");
       if (srv) {
-        try { localStorage.setItem(LS_KEY, JSON.stringify(srv)); } catch {}
-        return srv;
+        const merged = Object.assign({}, DEFAULT_PROFILE, srv);
+        saveLocal(merged);
+        return merged;
       }
-      try { return JSON.parse(localStorage.getItem(LS_KEY) || "null") || {}; }
-      catch { return {}; }
+      return loadLocal();
     },
-    async saveProfile(patch){
-      try {
-        const cur = JSON.parse(localStorage.getItem(LS_KEY) || "{}") || {};
-        localStorage.setItem(LS_KEY, JSON.stringify({ ...cur, ...patch }));
-      } catch {}
-      return await req("api/profile", {
+
+    async saveProfile(patch) {
+      const updated = mergeProfile(loadLocal(), patch);
+      saveLocal(updated);
+      if (IS_STATIC) return updated;
+      const srv = await req("api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch)
       });
+      if (srv) {
+        saveLocal(srv);
+        return srv;
+      }
+      return updated;
     },
-    async loadLeaderboard(){
-      return (await req("api/leaderboard")) || [];
+
+    async loadLeaderboard() {
+      if (IS_STATIC) return loadLocalLb();
+      return (await req("api/leaderboard")) || loadLocalLb();
     },
-    async submitScore(entry){
-      return (await req("api/leaderboard", {
+
+    async submitScore(entry) {
+      const list = loadLocalLb();
+      list.push({
+        name: String((entry && entry.name) || "Survivor").slice(0, 24),
+        score: Number(entry && entry.score) || 0,
+        wave: Number(entry && entry.wave) || 1,
+        kills: Number(entry && entry.kills) || 0,
+        win: !!(entry && entry.win),
+        date: new Date().toISOString().slice(0, 10)
+      });
+      list.sort((a, b) => b.score - a.score);
+      const top = list.slice(0, 10);
+      saveLocalLb(top);
+      if (IS_STATIC) return top;
+      const srv = await req("api/leaderboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(entry)
-      })) || [];
+      });
+      if (srv) {
+        saveLocalLb(srv);
+        return srv;
+      }
+      return top;
     }
   };
 })();
