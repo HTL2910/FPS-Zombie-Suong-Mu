@@ -191,9 +191,15 @@ FPS.entities = (function () {
   var dmgPool = [];
   var boomPool = [];
 
+  var PART_MAX = 72;
   var partGeo = new THREE.BoxGeometry(0.09, 0.09, 0.09);
   var casingGeo = new THREE.BoxGeometry(0.018, 0.018, 0.05);
   var boomRingGeo = new THREE.RingGeometry(0.65, 1.0, 28);
+  var _pMat4 = new THREE.Matrix4();
+  var _zeroMat4 = new THREE.Matrix4().makeScale(0, 0, 0);
+  var _pCol = new THREE.Color(0xffffff);
+  var _partColorDirty = false;
+  var _partMatDirty = false;
 
   for (var i = 0; i < 16; i++) {
     var lGeo = new THREE.BufferGeometry();
@@ -204,12 +210,17 @@ FPS.entities = (function () {
     W.scene.add(l);
     tracerPool.push({ l: l, active: false, t: 0 });
   }
-  for (var i = 0; i < 72; i++) {
-    var pm = new THREE.Mesh(partGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    pm.visible = false;
-    W.scene.add(pm);
-    partPool.push({ m: pm, active: false, vx: 0, vy: 0, vz: 0, t: 0 });
+  var partInst = new THREE.InstancedMesh(partGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), PART_MAX);
+  partInst.frustumCulled = false;
+  partInst.visible = false;
+  for (var i = 0; i < PART_MAX; i++) {
+    partInst.setMatrixAt(i, _zeroMat4);
+    partInst.setColorAt(i, _pCol);
+    partPool.push({ idx: i, active: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, t: 0 });
   }
+  partInst.instanceMatrix.needsUpdate = true;
+  if (partInst.instanceColor) partInst.instanceColor.needsUpdate = true;
+  W.scene.add(partInst);
   for (var i = 0; i < 12; i++) {
     var cm = new THREE.Mesh(casingGeo, new THREE.MeshBasicMaterial({ color: 0xd8a83c }));
     cm.visible = false;
@@ -263,6 +274,7 @@ FPS.entities = (function () {
 
   function burst(pos, color, n) {
     n = Math.max(1, Math.round(n * particleMul));
+    _pCol.setHex(color);
     for (var i = 0; i < n; i++) {
       var rec = null;
       for (var k = 0; k < partPool.length; k++) {
@@ -270,13 +282,19 @@ FPS.entities = (function () {
       }
       if (!rec) return;
       rec.active = true;
-      rec.m.visible = true;
-      rec.m.material.color.setHex(color);
-      rec.m.position.copy(pos);
+      rec.x = pos.x;
+      rec.y = pos.y;
+      rec.z = pos.z;
       rec.vx = (Math.random() - 0.5) * 3.6;
       rec.vy = Math.random() * 3.4;
       rec.vz = (Math.random() - 0.5) * 3.6;
       rec.t = 0.42 + Math.random() * 0.25;
+      _pMat4.makeTranslation(rec.x, rec.y, rec.z);
+      partInst.setMatrixAt(rec.idx, _pMat4);
+      partInst.setColorAt(rec.idx, _pCol);
+      _partMatDirty = true;
+      _partColorDirty = true;
+      partInst.visible = true;
       particles.push(rec);
     }
   }
@@ -465,6 +483,12 @@ FPS.entities = (function () {
     }
   }
 
+  var _zBarBgGeo = new THREE.PlaneGeometry(0.85, 0.11);
+  var _zBarFgGeo = new THREE.PlaneGeometry(0.8, 0.075);
+  var _zBarBgMat = new THREE.MeshBasicMaterial({ color: 0x101010, side: THREE.DoubleSide, depthTest: false });
+  var _zBarFgMat = new THREE.MeshBasicMaterial({ color: 0x7ec850, side: THREE.DoubleSide, depthTest: false });
+  var _zBarBossFgMat = new THREE.MeshBasicMaterial({ color: 0xff3020, side: THREE.DoubleSide, depthTest: false });
+
   function makeZombie(type) {
     var isBoss = isBossType(type);
     var sc = isBoss ? 2.2 : (type === "brute" ? 1.5 : (type === "runner" ? 0.95 : 1.0));
@@ -538,17 +562,12 @@ FPS.entities = (function () {
 
     var barG = new THREE.Group();
     barG.position.y = 2.15;
+    barG.visible = isBoss;
     g.add(barG);
-    var barBg = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.85, 0.11),
-      new THREE.MeshBasicMaterial({ color: 0x101010, side: THREE.DoubleSide, depthTest: false })
-    );
+    var barBg = new THREE.Mesh(_zBarBgGeo, _zBarBgMat);
     barBg.renderOrder = 5;
     barG.add(barBg);
-    var barFg = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.8, 0.075),
-      new THREE.MeshBasicMaterial({ color: isBoss ? 0xff3020 : 0x7ec850, side: THREE.DoubleSide, depthTest: false })
-    );
+    var barFg = new THREE.Mesh(_zBarFgGeo, isBoss ? _zBarBossFgMat : _zBarFgMat);
     barFg.renderOrder = 6;
     barFg.position.z = 0.005;
     barG.add(barFg);
@@ -738,8 +757,11 @@ FPS.entities = (function () {
     if (FPS.ui && FPS.ui.updateHUD) FPS.ui.updateHUD();
   }
 
-  // Pickups
+  // Pickups (shared geometries)
   var pickups = [];
+  var _pkBoxGeo = new THREE.BoxGeometry(0.5, 0.34, 0.38);
+  var _pkMedCrossGeo = new THREE.BoxGeometry(0.24, 0.06, 0.08);
+  var _pkAmmoTipGeo = new THREE.BoxGeometry(0.4, 0.1, 0.28);
   var medMat = new THREE.MeshLambertMaterial({ color: 0xe8e4da });
   var medCross = new THREE.MeshBasicMaterial({ color: 0xd21f2c });
   var ammoMat = new THREE.MeshLambertMaterial({ color: 0x5a6136 });
@@ -749,17 +771,17 @@ FPS.entities = (function () {
     var kind = Math.random() < 0.45 ? "med" : "ammo";
     var g = new THREE.Group();
     if (kind === "med") {
-      var b = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.34, 0.38), medMat);
+      var b = new THREE.Mesh(_pkBoxGeo, medMat);
       b.position.y = 0.32;
       g.add(b);
-      var c = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.06, 0.08), medCross);
+      var c = new THREE.Mesh(_pkMedCrossGeo, medCross);
       c.position.y = 0.5;
       g.add(c);
     } else {
-      var b2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.34, 0.38), ammoMat);
+      var b2 = new THREE.Mesh(_pkBoxGeo, ammoMat);
       b2.position.y = 0.32;
       g.add(b2);
-      var tip = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 0.28), ammoTip);
+      var tip = new THREE.Mesh(_pkAmmoTipGeo, ammoTip);
       tip.position.y = 0.54;
       g.add(tip);
     }
@@ -920,7 +942,9 @@ FPS.entities = (function () {
           var zb = zombies[zi];
           if (zb.dead) continue;
           var gp = zb.group.position;
-          if (Math.hypot(gp.x - z.x, gp.z - z.z) <= z.r + zb.hitR * 0.35) {
+          var rx = gp.x - z.x, rz = gp.z - z.z;
+          var rr = z.r + zb.hitR * 0.35;
+          if (rx * rx + rz * rz <= rr * rr) {
             var pt = _hitPt.set(gp.x, 1.1 * zb.group.scale.y, gp.z);
             damageZombie(zb, 28 * dmgMul, false, pt);
             burst(pt, 0xff8c2a, 3);
@@ -931,7 +955,9 @@ FPS.entities = (function () {
         for (var bi = 0; bi < barrels.length; bi++) {
           var b = barrels[bi];
           if (!b || !b.alive) continue;
-          if (Math.hypot(b.x - z.x, b.z - z.z) <= z.r + (b.r || 0.58)) {
+          var bx = b.x - z.x, bz = b.z - z.z;
+          var brr = z.r + (b.r || 0.58);
+          if (bx * bx + bz * bz <= brr * brr) {
             b.hp -= 35;
             if (b.hp <= 0) explodeBarrel(b);
           }
@@ -964,8 +990,10 @@ FPS.entities = (function () {
       var zb = zombies[zi];
       if (!zb || zb.dead) continue;
       var zp = zb.group.position;
-      var dist = Math.hypot(zp.x - barrel.x, zp.z - barrel.z);
-      if (dist <= 8.0) {
+      var zx = zp.x - barrel.x, zz = zp.z - barrel.z;
+      var dist2 = zx * zx + zz * zz;
+      if (dist2 <= 64.0) {
+        var dist = Math.sqrt(dist2);
         var falloff = Math.max(0.25, 1 - (dist / 8.0) * 0.75);
         var pt = _hitPt.set(zp.x, 1.1 * zb.group.scale.y, zp.z);
         damageZombie(zb, baseDmg * falloff, dist < 2.2, pt);
@@ -973,8 +1001,10 @@ FPS.entities = (function () {
     }
 
     if (playerPos && FPS.game && FPS.game.hurtPlayer) {
-      var pDist = Math.hypot(playerPos.x - barrel.x, playerPos.z - barrel.z);
-      if (pDist < 2.5) {
+      var pdx = playerPos.x - barrel.x, pdz = playerPos.z - barrel.z;
+      var pd2 = pdx * pdx + pdz * pdz;
+      if (pd2 < 6.25) {
+        var pDist = Math.sqrt(pd2);
         var selfDmg = Math.round(6 + 16 * (1 - pDist / 2.5));
         FPS.game.hurtPlayer(selfDmg, barrel.x, barrel.z);
       }
@@ -985,15 +1015,18 @@ FPS.entities = (function () {
     var barrels = W.explosiveBarrels || [];
     for (var bi = 0; bi < barrels.length; bi++) {
       var other = barrels[bi];
-      if (other !== barrel && other.alive && Math.hypot(other.x - barrel.x, other.z - barrel.z) <= 7.5) {
-        (function (nb, expectedLv) {
-          setTimeout(function () {
-            var curG = getG();
-            if (curG && curG.state === "playing" && nb.alive && W.currentLevel && W.currentLevel.id === expectedLv) {
-              explodeBarrel(nb);
-            }
-          }, 110);
-        })(other, lvId);
+      if (other !== barrel && other.alive) {
+        var ox = other.x - barrel.x, oz = other.z - barrel.z;
+        if (ox * ox + oz * oz <= 56.25) {
+          (function (nb, expectedLv) {
+            setTimeout(function () {
+              var curG = getG();
+              if (curG && curG.state === "playing" && nb.alive && W.currentLevel && W.currentLevel.id === expectedLv) {
+                explodeBarrel(nb);
+              }
+            }, 110);
+          })(other, lvId);
+        }
       }
     }
 
@@ -1348,7 +1381,8 @@ FPS.entities = (function () {
 
       var dx = playerPos.x - gp.x;
       var dz2 = playerPos.z - gp.z;
-      var dist = Math.hypot(dx, dz2) || 0.01;
+      var dist2 = dx * dx + dz2 * dz2;
+      var dist = Math.sqrt(dist2) || 0.01;
       var sc = z.group.scale.x;
       var moveDirX = dx / dist;
       var moveDirZ = dz2 / dist;
@@ -1362,7 +1396,7 @@ FPS.entities = (function () {
           z.steerBias = Math.max(0, z.steerBias - dt);
           var bx = nxP * 0.35 + z.lastTangX * 0.65;
           var bz = nzP * 0.35 + z.lastTangZ * 0.65;
-          var bl = Math.hypot(bx, bz) || 1;
+          var bl = Math.sqrt(bx * bx + bz * bz) || 1;
           moveDirX = bx / bl;
           moveDirZ = bz / bl;
         }
@@ -1389,8 +1423,8 @@ FPS.entities = (function () {
           moveDirX = tx;
           moveDirZ = tz;
 
-          var moved = Math.hypot(gp.x - prevX, gp.z - prevZ);
-          if (moved < step * 0.3) {
+          var mvx = gp.x - prevX, mvz = gp.z - prevZ;
+          if (mvx * mvx + mvz * mvz < (step * 0.3) * (step * 0.3)) {
             z.stallT += dt;
             if (z.stallT > 0.7) {
               z.steerDir = -z.steerDir;
@@ -1422,8 +1456,12 @@ FPS.entities = (function () {
         gp.y = 0;
       }
 
-      z.barG.lookAt(W.camera.position);
-      z.barFg.scale.x = Math.max(0, z.hp / z.maxHp);
+      var showBar = !z.dead && (z.hp < z.maxHp || z.isBoss) && dist <= 24;
+      z.barG.visible = showBar;
+      if (showBar) {
+        z.barG.lookAt(W.camera.position);
+        z.barFg.scale.x = Math.max(0, z.hp / z.maxHp);
+      }
 
       if (z.graceT > 0) z.graceT -= dt;
       if (z.atkCd > 0) z.atkCd -= dt;
@@ -1468,7 +1506,8 @@ FPS.entities = (function () {
           }
           continue;
         }
-        if (Math.hypot(sp.x - playerPos.x, sp.z - playerPos.z) < 2.0) {
+        var sdx = sp.x - playerPos.x, sdz = sp.z - playerPos.z;
+        if (sdx * sdx + sdz * sdz < 4.0) {
           sp.alive = false;
           sp.respawnT = 45;
           if (sp.mesh) sp.mesh.visible = false;
@@ -1495,7 +1534,8 @@ FPS.entities = (function () {
         pk.t += dt * 3;
         pk.g.position.y = Math.sin(pk.t) * 0.06;
         pk.g.rotation.y += dt * 1.5;
-        if (Math.hypot(pk.g.position.x - playerPos.x, pk.g.position.z - playerPos.z) < 1.4) {
+        var pkx = pk.g.position.x - playerPos.x, pkz = pk.g.position.z - playerPos.z;
+        if (pkx * pkx + pkz * pkz < 1.96) {
           if (pk.kind === "med" && G.hp < G.maxHp) {
             G.hp = Math.min(G.maxHp, G.hp + 35);
             if (FPS.audio && FPS.audio.sfxPickup) FPS.audio.sfxPickup();
@@ -1525,14 +1565,30 @@ FPS.entities = (function () {
       tr.l.material.opacity = Math.max(0, tr.t / 0.09) * 0.85;
       if (tr.t <= 0) { tr.active = false; tr.l.visible = false; tracers.splice(ti, 1); }
     }
-    for (var pi = particles.length - 1; pi >= 0; pi--) {
-      var pp = particles[pi];
-      pp.t -= dt;
-      pp.vy -= 6 * dt;
-      pp.m.position.x += pp.vx * dt;
-      pp.m.position.y += pp.vy * dt;
-      pp.m.position.z += pp.vz * dt;
-      if (pp.t <= 0) { pp.active = false; pp.m.visible = false; particles.splice(pi, 1); }
+    if (particles.length > 0 || _partMatDirty) {
+      for (var pi = particles.length - 1; pi >= 0; pi--) {
+        var pp = particles[pi];
+        pp.t -= dt;
+        if (pp.t <= 0) {
+          pp.active = false;
+          partInst.setMatrixAt(pp.idx, _zeroMat4);
+          particles.splice(pi, 1);
+        } else {
+          pp.vy -= 6 * dt;
+          pp.x += pp.vx * dt;
+          pp.y += pp.vy * dt;
+          pp.z += pp.vz * dt;
+          _pMat4.makeTranslation(pp.x, pp.y, pp.z);
+          partInst.setMatrixAt(pp.idx, _pMat4);
+        }
+      }
+      partInst.instanceMatrix.needsUpdate = true;
+      if (_partColorDirty && partInst.instanceColor) {
+        partInst.instanceColor.needsUpdate = true;
+        _partColorDirty = false;
+      }
+      _partMatDirty = false;
+      partInst.visible = particles.length > 0;
     }
     for (var ci = casingsLive.length - 1; ci >= 0; ci--) {
       var cc = casingsLive[ci];

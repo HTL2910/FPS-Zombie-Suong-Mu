@@ -6,7 +6,7 @@ window.FPS = window.FPS || {};
   scene.background = new THREE.Color(0x070a0f);
   scene.fog = new THREE.FogExp2(0x0a0e13, 0.021);
 
-  var camera = new THREE.PerspectiveCamera(74, innerWidth / innerHeight, 0.1, 260);
+  var camera = new THREE.PerspectiveCamera(74, innerWidth / innerHeight, 0.1, 95);
   camera.position.set(0, 1.7, 40);
 
   var renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
@@ -18,24 +18,24 @@ window.FPS = window.FPS || {};
 
   var clock = new THREE.Clock();
 
-  // Fast 3-light world rig + player flashlight (NEVER add per-lamp PointLights!)
-  scene.add(new THREE.AmbientLight(0x8a97ad, 0.9));
-  scene.add(new THREE.HemisphereLight(0x5a6c8c, 0x1a1c14, 0.95));
+  // Fast 3-light world rig + player flashlight (ZERO PointLights anywhere!)
+  scene.add(new THREE.AmbientLight(0x94a3b8, 1.12));
+  scene.add(new THREE.HemisphereLight(0x667a9c, 0x22251c, 1.05));
   var moonLight = new THREE.DirectionalLight(0xa9c0e0, 1.15);
   moonLight.position.set(-30, 50, -20);
   scene.add(moonLight);
 
   var moon = new THREE.Mesh(
-    new THREE.SphereGeometry(3.4, 12, 12),
+    new THREE.SphereGeometry(3.0, 12, 12),
     new THREE.MeshBasicMaterial({ color: 0xdfe8f5, fog: false })
   );
-  moon.position.set(-55, 62, -70);
+  moon.position.set(-36, 42, -52);
   moon.matrixAutoUpdate = false;
   moon.updateMatrix();
   scene.add(moon);
 
   var moonGlow = new THREE.Mesh(
-    new THREE.SphereGeometry(5.2, 12, 12),
+    new THREE.SphereGeometry(4.6, 12, 12),
     new THREE.MeshBasicMaterial({ color: 0x5a6d8f, transparent: true, opacity: 0.25, fog: false })
   );
   moonGlow.position.copy(moon.position);
@@ -43,7 +43,7 @@ window.FPS = window.FPS || {};
   moonGlow.updateMatrix();
   scene.add(moonGlow);
 
-  // Player Flashlight & Camera Fill/Muzzle Lights
+  // Player Flashlight (ZERO PointLights!)
   var flashlight = new THREE.SpotLight(0xfff2cf, 58, 54, 0.48, 0.45, 1.1);
   camera.add(flashlight);
   flashlight.position.set(0.25, -0.22, 0.1);
@@ -53,24 +53,18 @@ window.FPS = window.FPS || {};
   flashlight.target = flashTarget;
   scene.add(camera);
 
-  var fillLight = new THREE.PointLight(0xbfd0e8, 2.8, 9, 1.2);
-  camera.add(fillLight);
-  fillLight.position.set(0, 0, 0.3);
+  // Lightweight state-only light shims for backward compatibility (zero Three.js PointLights)
+  var fillLight = { intensity: 0, position: new THREE.Vector3() };
+  var muzzleLight = { intensity: 0, position: new THREE.Vector3() };
 
-  var muzzleLight = new THREE.PointLight(0xffc46b, 0, 10, 1.2);
-  muzzleLight.position.set(0.3, -0.25, -1.1);
-  camera.add(muzzleLight);
-
-  // Viewmodel Scene
+  // Viewmodel Scene (ZERO PointLights!)
   var gunScene = new THREE.Scene();
   var gunCam = new THREE.PerspectiveCamera(74, innerWidth / innerHeight, 0.05, 12);
-  gunScene.add(new THREE.HemisphereLight(0x9fb3d4, 0x2a2620, 1.1));
+  gunScene.add(new THREE.HemisphereLight(0x9fb3d4, 0x2a2620, 1.15));
   var _gunKey = new THREE.DirectionalLight(0xfff1d6, 1.6);
   _gunKey.position.set(0.7, 1.3, 0.5);
   gunScene.add(_gunKey);
-  var gunMuzzle = new THREE.PointLight(0xffc46b, 0, 6, 1.2);
-  gunMuzzle.position.set(0.3, -0.2, -1.0);
-  gunScene.add(gunMuzzle);
+  var gunMuzzle = { intensity: 0, position: new THREE.Vector3() };
   var gunGroup = new THREE.Group();
   gunGroup.position.set(0.34, -0.34, -0.62);
   gunScene.add(gunGroup);
@@ -283,6 +277,19 @@ window.FPS = window.FPS || {};
     }
   });
 
+  var barrelTex = _makeTiledTex(128, function (ctx, S) {
+    ctx.fillStyle = "#b81d1d";
+    ctx.fillRect(0, 0, S, S);
+    ctx.fillStyle = "#8a1212";
+    ctx.fillRect(0, S * 0.46, S, S * 0.08);
+    ctx.fillStyle = "#ffcf38";
+    ctx.fillRect(0, S * 0.24, S, S * 0.12);
+    ctx.fillRect(0, S * 0.64, S, S * 0.12);
+    ctx.fillStyle = "#2b1614";
+    ctx.fillRect(0, 0, S, 7);
+    ctx.fillRect(0, S - 7, S, 7);
+  });
+
   var _mats = {
     stone: new THREE.MeshLambertMaterial({ map: stoneTex, color: 0xdadfd8 }),
     brick: new THREE.MeshLambertMaterial({ map: brickTex, color: 0xd8c6be }),
@@ -302,7 +309,7 @@ window.FPS = window.FPS || {};
       blending: THREE.AdditiveBlending
     }),
     wisp: new THREE.MeshBasicMaterial({ color: 0x9fb2c8, transparent: true, opacity: 0.036, depthWrite: false }),
-    barrelBody: new THREE.MeshLambertMaterial({ color: 0xc82424, emissive: 0x3a0606 }),
+    barrelBody: new THREE.MeshLambertMaterial({ map: barrelTex, color: 0xffffff, emissive: 0x3a0606 }),
     barrelStripe: new THREE.MeshBasicMaterial({ color: 0xffcf38 }),
     barrelTop: new THREE.MeshBasicMaterial({ color: 0xff5a24, side: THREE.DoubleSide }),
     barrelFloorRing: new THREE.MeshBasicMaterial({
@@ -436,6 +443,16 @@ window.FPS = window.FPS || {};
   // ---------------------------------------------------------------------------
   // Material Hardening & Diagnostics
   // ---------------------------------------------------------------------------
+  function _disposeUnusedPbrMaps(m, keepMap, keepEmissive) {
+    var slots = [m.normalMap, m.roughnessMap, m.metalnessMap, m.aoMap, keepEmissive ? null : m.emissiveMap];
+    for (var i = 0; i < slots.length; i++) {
+      var t = slots[i];
+      if (t && t !== keepMap && t !== keepEmissive && typeof t.dispose === "function") {
+        try { t.dispose(); } catch (e) {}
+      }
+    }
+  }
+
   function toFastLambert(root, fallbackHex, tintMul) {
     if (!root || !root.traverse) return;
     root.traverse(function (o) {
@@ -447,6 +464,10 @@ window.FPS = window.FPS || {};
         var m = list[i];
         if (!m) { out.push(m); continue; }
         if (m.map) { try { m.map.needsUpdate = true; } catch (e) {} }
+        if (m.isMeshLambertMaterial) {
+          out.push(m);
+          continue;
+        }
         var colHex = m.map ? 0xffffff : fallbackHex;
         var lm = new THREE.MeshLambertMaterial({
           map: m.map || null,
@@ -454,11 +475,13 @@ window.FPS = window.FPS || {};
           transparent: false
         });
         if (tintMul && lm.color) lm.color.multiplyScalar(tintMul);
+        _disposeUnusedPbrMaps(m, m.map || null, null);
+        if (typeof m.dispose === "function") { try { m.dispose(); } catch (e) {} }
         out.push(lm);
       }
       o.material = Array.isArray(o.material) ? out : out[0];
       o.userData.origMat = o.material;
-      o.frustumCulled = false;
+      o.frustumCulled = !o.isSkinnedMesh;
     });
   }
 
@@ -467,13 +490,32 @@ window.FPS = window.FPS || {};
     root.traverse(function (o) {
       if (!(o.isMesh || o.isSkinnedMesh) || !o.material) return;
       var list = Array.isArray(o.material) ? o.material : [o.material];
+      var out = [];
       for (var i = 0; i < list.length; i++) {
         var m = list[i];
-        if (!m) continue;
+        if (!m) { out.push(m); continue; }
         if (m.map) { try { m.map.needsUpdate = true; } catch (e) {} }
-        else if (m.color) { try { m.color.setHex(0x23262b); } catch (e) {} }
-        if (typeof m.envMapIntensity === "number") m.envMapIntensity = 0.5;
+        if (m.isMeshLambertMaterial) {
+          out.push(m);
+          continue;
+        }
+        var lm = new THREE.MeshLambertMaterial({
+          map: m.map || null,
+          color: m.map ? 0xe6e8ec : 0x32363d,
+          emissive: m.emissive ? m.emissive.clone() : new THREE.Color(0x000000),
+          emissiveMap: m.emissiveMap || null,
+          emissiveIntensity: m.emissiveIntensity !== undefined ? m.emissiveIntensity : 0.45,
+          transparent: !!m.transparent,
+          opacity: m.opacity !== undefined ? m.opacity : 1,
+          alphaTest: m.alphaTest || 0,
+          side: m.side !== undefined ? m.side : THREE.FrontSide
+        });
+        _disposeUnusedPbrMaps(m, m.map || null, m.emissiveMap || null);
+        if (typeof m.dispose === "function") { try { m.dispose(); } catch (e) {} }
+        out.push(lm);
       }
+      o.material = Array.isArray(o.material) ? out : out[0];
+      o.frustumCulled = false;
     });
   }
 
@@ -850,27 +892,70 @@ window.FPS = window.FPS || {};
     uv.needsUpdate = true;
   }
 
-  function _addFenceRun(x, z, len, rot, sp) {
-    var g = new THREE.Group();
+  function _mergeIndexedGeos(geoList) {
+    if (!geoList || !geoList.length) return null;
+    var totalVerts = 0;
+    var totalIdx = 0;
+    for (var i = 0; i < geoList.length; i++) {
+      var g = geoList[i];
+      totalVerts += g.attributes.position.count;
+      totalIdx += g.index ? g.index.count : g.attributes.position.count;
+    }
+    var posArr = new Float32Array(totalVerts * 3);
+    var normArr = new Float32Array(totalVerts * 3);
+    var uvArr = new Float32Array(totalVerts * 2);
+    var idxArr = totalVerts > 65535 ? new Uint32Array(totalIdx) : new Uint16Array(totalIdx);
+    var vOff = 0;
+    var iOff = 0;
+    for (var i = 0; i < geoList.length; i++) {
+      var geo = geoList[i];
+      var p = geo.attributes.position.array;
+      var n = geo.attributes.normal.array;
+      var u = geo.attributes.uv ? geo.attributes.uv.array : null;
+      posArr.set(p, vOff * 3);
+      normArr.set(n, vOff * 3);
+      if (u) uvArr.set(u, vOff * 2);
+      if (geo.index) {
+        var srcIdx = geo.index.array;
+        for (var k = 0; k < srcIdx.length; k++) idxArr[iOff + k] = srcIdx[k] + vOff;
+        iOff += srcIdx.length;
+      } else {
+        var vc = geo.attributes.position.count;
+        for (var k2 = 0; k2 < vc; k2++) idxArr[iOff + k2] = vOff + k2;
+        iOff += vc;
+      }
+      vOff += geo.attributes.position.count;
+      geo.dispose();
+    }
+    var out = new THREE.BufferGeometry();
+    out.setAttribute("position", new THREE.BufferAttribute(posArr, 3));
+    out.setAttribute("normal", new THREE.BufferAttribute(normArr, 3));
+    out.setAttribute("uv", new THREE.BufferAttribute(uvArr, 2));
+    out.setIndex(new THREE.BufferAttribute(idxArr, 1));
+    out.computeBoundingSphere();
+    return out;
+  }
+
+  function _collectFenceRun(x, z, len, rot, sp, postMatrices, railGeos) {
     var step = sp || 4.5;
     var n = Math.max(2, Math.floor(len / step));
+    var cos = rot ? Math.cos(rot) : 1;
+    var sin = rot ? Math.sin(rot) : 0;
     for (var k = 0; k <= n; k++) {
-      var px = -len * 0.5 + (k / n) * len;
-      var post = new THREE.Mesh(_fencePostGeo, _mats.fence);
-      post.position.set(px, 0.66, 0);
-      g.add(post);
+      var lx = -len * 0.5 + (k / n) * len;
+      var mat4 = new THREE.Matrix4();
+      if (rot) mat4.makeRotationY(rot);
+      mat4.setPosition(x + lx * cos, 0.66, z - lx * sin);
+      postMatrices.push(mat4);
     }
-    var railGeo = new THREE.BoxGeometry(len, 0.12, 0.08);
-    var rail1 = new THREE.Mesh(railGeo, _mats.fence);
-    rail1.position.y = 0.98;
-    g.add(rail1);
-    var rail2 = new THREE.Mesh(railGeo, _mats.fence);
-    rail2.position.y = 0.46;
-    g.add(rail2);
-    g.position.set(x, 0, z);
-    if (rot) g.rotation.y = rot;
-    g.traverse(function (o) { o.matrixAutoUpdate = false; o.updateMatrix(); });
-    levelGroup.add(g);
+    var rHeights = [0.98, 0.46];
+    for (var rh = 0; rh < rHeights.length; rh++) {
+      var rg = new THREE.BoxGeometry(len, 0.12, 0.08);
+      rg.translate(0, rHeights[rh], 0);
+      if (rot) rg.rotateY(rot);
+      rg.translate(x, 0, z);
+      railGeos.push(rg);
+    }
   }
 
   function _lamp(x, z) {
@@ -1023,19 +1108,6 @@ window.FPS = window.FPS || {};
     var body = new THREE.Mesh(_barrelBodyGeo, _mats.barrelBody);
     body.position.y = 0.59;
     g.add(body);
-
-    var s1 = new THREE.Mesh(_barrelStripeGeo, _mats.barrelStripe);
-    s1.position.y = 0.36;
-    g.add(s1);
-
-    var s2 = new THREE.Mesh(_barrelStripeGeo, _mats.barrelStripe);
-    s2.position.y = 0.84;
-    g.add(s2);
-
-    var topRing = new THREE.Mesh(_barrelTopGeo, _mats.barrelTop);
-    topRing.rotation.x = -Math.PI * 0.5;
-    topRing.position.y = 1.19;
-    g.add(topRing);
 
     var floorRing = new THREE.Mesh(_barrelFloorGeo, _mats.barrelFloorRing);
     floorRing.rotation.x = -Math.PI * 0.5;
@@ -1233,37 +1305,63 @@ window.FPS = window.FPS || {};
     ground.updateMatrix();
     levelGroup.add(ground);
 
-    // Perimeter barrier fences & boundary colliders at ±half
-    _addFenceRun(0, -half - 0.35, arena + 0.7, 0, 4.5);
-    _addFenceRun(0, half + 0.35, arena + 0.7, 0, 4.5);
-    _addFenceRun(-half - 0.35, 0, arena + 0.7, Math.PI * 0.5, 4.5);
-    _addFenceRun(half + 0.35, 0, arena + 0.7, Math.PI * 0.5, 4.5);
+    // Perimeter barrier fences (batched: 1 InstancedMesh for posts + 1 merged rail Mesh) & boundary colliders at ±half
+    var fencePostMats = [];
+    var fenceRailGeos = [];
+    _collectFenceRun(0, -half - 0.35, arena + 0.7, 0, 4.5, fencePostMats, fenceRailGeos);
+    _collectFenceRun(0, half + 0.35, arena + 0.7, 0, 4.5, fencePostMats, fenceRailGeos);
+    _collectFenceRun(-half - 0.35, 0, arena + 0.7, Math.PI * 0.5, 4.5, fencePostMats, fenceRailGeos);
+    _collectFenceRun(half + 0.35, 0, arena + 0.7, Math.PI * 0.5, 4.5, fencePostMats, fenceRailGeos);
+
+    if (fencePostMats.length) {
+      var postInst = new THREE.InstancedMesh(_fencePostGeo, _mats.fence, fencePostMats.length);
+      for (var pi = 0; pi < fencePostMats.length; pi++) postInst.setMatrixAt(pi, fencePostMats[pi]);
+      postInst.instanceMatrix.needsUpdate = true;
+      postInst.matrixAutoUpdate = false;
+      postInst.updateMatrix();
+      levelGroup.add(postInst);
+    }
+    var mergedRailGeo = _mergeIndexedGeos(fenceRailGeos);
+    if (mergedRailGeo) {
+      var railMesh = new THREE.Mesh(mergedRailGeo, _mats.fence);
+      railMesh.matrixAutoUpdate = false;
+      railMesh.updateMatrix();
+      levelGroup.add(railMesh);
+    }
 
     _addBoxCollider(0, -half - 0.5, half + 1, 0.5, 0);
     _addBoxCollider(0, half + 0.5, half + 1, 0.5, 0);
     _addBoxCollider(-half - 0.5, 0, 0.5, half + 1, 0);
     _addBoxCollider(half + 0.5, 0, 0.5, half + 1, 0);
 
-    // Tactical Walls (waist-high cover <= 1.35 lets bullets fly over; full walls h >= 1.6 block bullets)
+    // Tactical Walls merged per material bucket (26-34 walls -> <=4 draw calls)
     var walls = levelDef.walls || [];
+    var wallBuckets = {};
     for (var wi = 0; wi < walls.length; wi++) {
       var w = walls[wi];
-      var matKey = w.mat || "stone";
-      var mat = _mats[matKey] || _mats.stone;
+      var matKey = _mats[w.mat] ? w.mat : "stone";
       var wGeo = new THREE.BoxGeometry(w.w, w.h, w.d);
       _applyWallUVs(wGeo, w.w, w.h, w.d, matKey);
-      var wm = new THREE.Mesh(wGeo, mat);
-      wm.position.set(w.x, w.h * 0.5, w.z);
-      if (w.ry) wm.rotation.y = w.ry;
-      wm.matrixAutoUpdate = false;
-      wm.updateMatrix();
-      levelGroup.add(wm);
+      if (w.ry) wGeo.rotateY(w.ry);
+      wGeo.translate(w.x, w.h * 0.5, w.z);
+      if (!wallBuckets[matKey]) wallBuckets[matKey] = [];
+      wallBuckets[matKey].push(wGeo);
 
       var hw = w.w * 0.5;
       var hd = w.d * 0.5;
       _addBoxCollider(w.x, w.z, hw, hd, w.ry || 0);
       if (w.h >= 1.6) {
         _addBulletWall(w.x, w.z, hw, hd, w.h, w.ry || 0);
+      }
+    }
+    for (var wk in wallBuckets) {
+      if (!Object.prototype.hasOwnProperty.call(wallBuckets, wk)) continue;
+      var mergedWallGeo = _mergeIndexedGeos(wallBuckets[wk]);
+      if (mergedWallGeo) {
+        var wallMesh = new THREE.Mesh(mergedWallGeo, _mats[wk]);
+        wallMesh.matrixAutoUpdate = false;
+        wallMesh.updateMatrix();
+        levelGroup.add(wallMesh);
       }
     }
 
@@ -1408,13 +1506,239 @@ window.FPS = window.FPS || {};
   }
 
   // ---------------------------------------------------------------------------
-  // GLB Loader
+  // GLB Loader & GPU Warmup
   // ---------------------------------------------------------------------------
   var _glbStarted = false;
   var _glbDone = false;
   var _readyCbs = [];
+  var _progCbs = [];
+  var _warmupDone = false;
+  var _warmupStarted = false;
+  var _warmupCbs = [];
 
-  function loadAllGLBs(onReady) {
+  function _initTex(tex) {
+    if (tex && tex.isTexture && typeof renderer.initTexture === "function") {
+      if (!tex.image || tex.image.width !== 0) {
+        try { renderer.initTexture(tex); } catch (e) {}
+      }
+    }
+  }
+
+  function _initMatTextures(mat) {
+    if (!mat) return;
+    var arr = Array.isArray(mat) ? mat : [mat];
+    for (var i = 0; i < arr.length; i++) {
+      var m = arr[i];
+      if (!m) continue;
+      _initTex(m.map);
+      _initTex(m.emissiveMap);
+      _initTex(m.alphaMap);
+      _initTex(m.normalMap);
+    }
+  }
+
+  function _initObjTextures(root) {
+    if (!root || typeof root.traverse !== "function") return;
+    root.traverse(function (o) {
+      if (o.isMesh || o.isSkinnedMesh) _initMatTextures(o.material);
+    });
+  }
+
+  function compileCurrentLevel() {
+    try {
+      renderer.compile(scene, camera);
+      renderer.compile(gunScene, gunCam);
+    } catch (e) {}
+  }
+
+  function warmupGPU(onProgress, onDone) {
+    var totalCount = 7 + 4 + ((FPS.ENV_KEYS || window.ENV_KEYS || []).length);
+    if (_warmupDone) {
+      if (typeof onProgress === "function") {
+        try { onProgress({ loaded: totalCount, total: totalCount, pct: 100, phase: "warmup", label: "Sẵn sàng chiến đấu!" }); } catch (e) {}
+      }
+      if (typeof onDone === "function") {
+        try { onDone(); } catch (e) {}
+      }
+      return;
+    }
+    if (typeof onDone === "function") _warmupCbs.push(onDone);
+    if (_warmupStarted) return;
+    _warmupStarted = true;
+
+    function report(pct, label) {
+      if (typeof onProgress === "function") {
+        try { onProgress({ loaded: totalCount, total: totalCount, pct: pct, phase: "warmup", label: label }); } catch (e) {}
+      }
+    }
+
+    function finishWarmup() {
+      _warmupDone = true;
+      window.__loadDone = true;
+      var cbs = _warmupCbs.slice();
+      _warmupCbs.length = 0;
+      for (var i = 0; i < cbs.length; i++) {
+        try { cbs[i](); } catch (e) { console.error("warmup onDone error", e); }
+      }
+    }
+
+    // Gather unique GPU textures once to upload in smooth batches (6/frame)
+    var seenTex = new Set();
+    var texQueue = [];
+    function queueTex(tex) {
+      if (tex && tex.isTexture && !seenTex.has(tex)) {
+        if (!tex.image || tex.image.width !== 0) {
+          seenTex.add(tex);
+          texQueue.push(tex);
+        }
+      }
+    }
+    function queueMatTex(mat) {
+      if (!mat) return;
+      var arr = Array.isArray(mat) ? mat : [mat];
+      for (var i = 0; i < arr.length; i++) {
+        var m = arr[i];
+        if (!m) continue;
+        queueTex(m.map);
+        queueTex(m.emissiveMap);
+      }
+    }
+    function queueObjTex(root) {
+      if (!root || typeof root.traverse !== "function") return;
+      root.traverse(function (o) {
+        if (o.isMesh || o.isSkinnedMesh) queueMatTex(o.material);
+      });
+    }
+
+    queueTex(lampGlowTex);
+    for (var mk in _mats) {
+      if (Object.prototype.hasOwnProperty.call(_mats, mk)) queueMatTex(_mats[mk]);
+    }
+    queueMatTex(HIT_FLASH_MAT);
+    for (var zk in ZB_T) if (ZB_T[zk] && ZB_T[zk].scene) queueObjTex(ZB_T[zk].scene);
+    for (var gk in GUN_T) if (GUN_T[gk]) queueObjTex(GUN_T[gk]);
+    for (var ek in ENV_T) if (ENV_T[ek]) queueObjTex(ENV_T[ek]);
+
+    var cursor = 0;
+    function uploadChunk() {
+      var batchEnd = Math.min(texQueue.length, cursor + 6);
+      if (typeof renderer.initTexture === "function") {
+        for (; cursor < batchEnd; cursor++) {
+          try { renderer.initTexture(texQueue[cursor]); } catch (e) {}
+        }
+      } else {
+        cursor = texQueue.length;
+      }
+      var pct = 80 + Math.round((cursor / Math.max(1, texQueue.length)) * 10);
+      report(Math.min(90, pct), "Đang nạp kết cấu GPU (" + cursor + "/" + texQueue.length + ")...");
+      if (cursor < texQueue.length) {
+        requestAnimationFrame(uploadChunk);
+      } else {
+        requestAnimationFrame(compileWeaponsStep);
+      }
+    }
+
+    function compileWeaponsStep() {
+      report(93, "Đang khởi tạo vũ khí 3D...");
+      try {
+        if (FPS.entities && typeof FPS.entities.buildGun === "function") {
+          var gKinds = ["shotgun", "rifle", "thuanthien", "pistol"];
+          for (var gi = 0; gi < gKinds.length; gi++) {
+            FPS.entities.buildGun(gKinds[gi]);
+          }
+        }
+        renderer.compile(gunScene, gunCam);
+      } catch (e) {}
+      requestAnimationFrame(compileWorldStep);
+    }
+
+    function compileWorldStep() {
+      report(97, "Đang biên dịch shader GPU...");
+      var warmupGroup = null;
+      var wrapped = [];
+      var savedCull = [];
+      var helperGeos = [];
+      var prevPos = camera.position.clone();
+      var prevRot = camera.rotation.clone();
+      try {
+        if (!world.currentLevel && FPS.LEVELS && FPS.LEVELS.length) {
+          loadLevel(FPS.LEVELS[0]);
+        }
+        camera.position.set(0, 1.7, 24);
+        camera.lookAt(0, 1.2, 14);
+        camera.updateMatrixWorld(true);
+
+        warmupGroup = new THREE.Group();
+        warmupGroup.position.set(0, 0, 14);
+
+        // Compile 1 representative SkinnedMesh zombie (all 7 share identical Lambert+Skinning program)
+        var repKey = ZB_T.zombie ? "zombie" : Object.keys(ZB_T)[0];
+        var tpl = repKey ? ZB_T[repKey] : null;
+        if (tpl && tpl.scene) {
+          tpl.scene.traverse(function (o) {
+            if (o.isMesh || o.isSkinnedMesh) {
+              savedCull.push([o, o.frustumCulled]);
+              o.frustumCulled = false;
+            }
+          });
+          var wrapper = new THREE.Group();
+          wrapper.add(tpl.scene);
+          warmupGroup.add(wrapper);
+          wrapped.push([wrapper, tpl.scene]);
+        }
+
+        var helperMats = [HIT_FLASH_MAT, _mats.scorchOuter, _mats.scorchRing];
+        for (var hi = 0; hi < helperMats.length; hi++) {
+          if (!helperMats[hi]) continue;
+          var hg = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+          helperGeos.push(hg);
+          var hm = new THREE.Mesh(hg, helperMats[hi]);
+          hm.position.set(hi * 0.1 - 0.1, 0.5, 0);
+          warmupGroup.add(hm);
+        }
+
+        scene.add(warmupGroup);
+        renderer.compile(scene, camera);
+        renderer.compile(gunScene, gunCam);
+        renderer.clear();
+        renderer.render(scene, camera);
+        renderer.autoClear = false;
+        renderer.clearDepth();
+        renderer.render(gunScene, gunCam);
+        renderer.autoClear = true;
+      } catch (e) {
+        renderer.autoClear = true;
+      } finally {
+        for (var wi = 0; wi < wrapped.length; wi++) wrapped[wi][0].remove(wrapped[wi][1]);
+        for (var si = 0; si < savedCull.length; si++) savedCull[si][0].frustumCulled = savedCull[si][1];
+        if (warmupGroup) scene.remove(warmupGroup);
+        for (var hgi = 0; hgi < helperGeos.length; hgi++) helperGeos[hgi].dispose();
+        camera.position.copy(prevPos);
+        camera.rotation.copy(prevRot);
+        camera.updateMatrixWorld(true);
+      }
+
+      requestAnimationFrame(function () {
+        report(100, "Sẵn sàng chiến đấu!");
+        try {
+          renderer.clear();
+          renderer.render(scene, camera);
+          renderer.autoClear = false;
+          renderer.clearDepth();
+          renderer.render(gunScene, gunCam);
+          renderer.autoClear = true;
+        } catch (e) {
+          renderer.autoClear = true;
+        }
+        finishWarmup();
+      });
+    }
+
+    requestAnimationFrame(uploadChunk);
+  }
+
+  function loadAllGLBs(onReady, onProgress) {
+    if (typeof onProgress === "function") _progCbs.push(onProgress);
     if (typeof onReady === "function") {
       if (_glbDone) { onReady(); return; }
       _readyCbs.push(onReady);
@@ -1456,9 +1780,27 @@ window.FPS = window.FPS || {};
     var zbSpec = FPS.ZB_SPEC || window.ZB_SPEC || {};
 
     var envLeft = envKeys.length;
-    var totalLeft = zbKeys.length + gunKeys.length + envKeys.length;
+    var totalAssets = zbKeys.length + gunKeys.length + envKeys.length;
+    var loadedAssets = 0;
+    var totalLeft = totalAssets;
 
-    function checkAllDone() {
+    function emitProgress(label) {
+      var pct = Math.min(80, Math.round((loadedAssets / Math.max(1, totalAssets)) * 80));
+      var payload = {
+        loaded: loadedAssets,
+        total: totalAssets,
+        pct: pct,
+        phase: "assets",
+        label: label || "Đang tải tài nguyên 3D..."
+      };
+      for (var i = 0; i < _progCbs.length; i++) {
+        try { _progCbs[i](payload); } catch (e) {}
+      }
+    }
+
+    function checkAllDone(label) {
+      loadedAssets++;
+      emitProgress(label);
       if (--totalLeft > 0) return;
       _glbDone = true;
       var cbs = _readyCbs.slice();
@@ -1478,74 +1820,108 @@ window.FPS = window.FPS || {};
           _placeLevelProps(world.currentLevel);
         }
       }
-      checkAllDone();
+      checkAllDone("Đang tải vật cản & bản đồ...");
     }
 
     function startLoad() {
-      zbKeys.forEach(function (key) {
-        loader.load("assets/zb/zb_" + key + ".glb", function (g) {
-          toFastLambert(g.scene, 0x353b32);
-          var clips = zbClipMap(g.animations, zbSpec[key]);
-          var tmpM = new THREE.AnimationMixer(g.scene);
-          var c = clips.idle || clips.walk || clips.run;
-          if (c) {
-            var act = tmpM.clipAction(c);
-            act.play();
-            tmpM.update(0.04);
-          }
-          g.scene.updateMatrixWorld(true);
-          var bb = new THREE.Box3().setFromObject(g.scene);
-          var mh = (bb.max.y - bb.min.y) || 1.8;
-          var unitScale = 2.02 / mh;
-          var yOffset = -bb.min.y * unitScale;
-          if (c) { tmpM.stopAllAction(); tmpM.update(0); }
-          ZB_T[key] = { scene: g.scene, clips: clips, unitScale: unitScale, yOffset: yOffset };
-          window.__zbLoaded = Object.keys(ZB_T).length;
-          checkAllDone();
-        }, undefined, function () {
-          console.warn("zb GLB load fail", key);
-          checkAllDone();
-        });
-      });
-
-      gunKeys.forEach(function (kind) {
-        loader.load("assets/weapons/wp_" + kind + ".glb", function (g) {
-          hardenGunObj(g.scene);
-          GUN_T[kind] = g.scene;
-          if (FPS.entities) {
-            if (typeof FPS.entities.onGunLoaded === "function") FPS.entities.onGunLoaded(kind);
-            else if (FPS.entities.curWeapon === kind && typeof FPS.entities.buildGun === "function") FPS.entities.buildGun(kind);
-          } else if (typeof curWeapon !== "undefined" && curWeapon === kind && typeof buildGun === "function") {
-            buildGun(kind);
-          }
-          checkAllDone();
-        }, undefined, function () {
-          console.warn("weapon GLB load fail", kind);
-          checkAllDone();
-        });
-      });
+      if (totalAssets === 0) {
+        _glbDone = true;
+        var cbs = _readyCbs.slice();
+        _readyCbs.length = 0;
+        for (var ci = 0; ci < cbs.length; ci++) {
+          try { cbs[ci](); } catch (e) {}
+        }
+        return;
+      }
 
       if (envKeys.length === 0) {
         window.__envTemplatesLoaded = 0;
         window.__envBuilt = true;
         if (!world.currentLevel && FPS.LEVELS && FPS.LEVELS.length) loadLevel(FPS.LEVELS[0]);
-      } else {
-        envKeys.forEach(function (key) {
-          loader.load("assets/env/env_" + key + ".glb", function (g) {
-            toFastLambert(g.scene, 0x3c3a34, envTint[key] || 1);
+      }
+
+      var jobs = [];
+      gunKeys.forEach(function (kind) { jobs.push({ type: "gun", key: kind }); });
+      zbKeys.forEach(function (key) { jobs.push({ type: "zb", key: key }); });
+      envKeys.forEach(function (key) { jobs.push({ type: "env", key: key }); });
+
+      var nextJob = 0;
+      var MAX_CONCURRENT = 6;
+
+      function runJob(job, doneCb) {
+        if (job.type === "zb") {
+          var key = job.key;
+          loader.load("assets/zb/zb_" + key + ".glb", function (g) {
+            toFastLambert(g.scene, 0x353b32);
+            var clips = zbClipMap(g.animations, zbSpec[key]);
+            var tmpM = new THREE.AnimationMixer(g.scene);
+            var c = clips.idle || clips.walk || clips.run;
+            if (c) {
+              var act = tmpM.clipAction(c);
+              act.play();
+              tmpM.update(0.04);
+            }
+            g.scene.updateMatrixWorld(true);
+            var bb = new THREE.Box3().setFromObject(g.scene);
+            var mh = (bb.max.y - bb.min.y) || 1.8;
+            var unitScale = 2.02 / mh;
+            var yOffset = -bb.min.y * unitScale;
+            if (c) { tmpM.stopAllAction(); tmpM.update(0); }
+            ZB_T[key] = { scene: g.scene, clips: clips, unitScale: unitScale, yOffset: yOffset };
+            window.__zbLoaded = Object.keys(ZB_T).length;
+            checkAllDone("Đang tải mô hình xác sống...");
+            doneCb();
+          }, undefined, function () {
+            console.warn("zb GLB load fail", key);
+            checkAllDone("Đang tải mô hình xác sống...");
+            doneCb();
+          });
+        } else if (job.type === "gun") {
+          var kind = job.key;
+          loader.load("assets/weapons/wp_" + kind + ".glb", function (g) {
+            hardenGunObj(g.scene);
+            GUN_T[kind] = g.scene;
+            if (FPS.entities) {
+              if (typeof FPS.entities.onGunLoaded === "function") FPS.entities.onGunLoaded(kind);
+              else if (FPS.entities.curWeapon === kind && typeof FPS.entities.buildGun === "function") FPS.entities.buildGun(kind);
+            } else if (typeof curWeapon !== "undefined" && curWeapon === kind && typeof buildGun === "function") {
+              buildGun(kind);
+            }
+            checkAllDone("Đang tải vũ khí 3D...");
+            doneCb();
+          }, undefined, function () {
+            console.warn("weapon GLB load fail", kind);
+            checkAllDone("Đang tải vũ khí 3D...");
+            doneCb();
+          });
+        } else {
+          var eKey = job.key;
+          loader.load("assets/env/env_" + eKey + ".glb", function (g) {
+            toFastLambert(g.scene, 0x3c3a34, envTint[eKey] || 1);
             g.scene.updateMatrixWorld(true);
             var bb = new THREE.Box3().setFromObject(g.scene);
             var sz = new THREE.Vector3();
             bb.getSize(sz);
-            ENV_T[key] = g.scene;
-            ENV_DIM[key] = { w: sz.x || 1, h: sz.y || 1, d: sz.z || 1, minY: bb.min.y };
+            ENV_T[eKey] = g.scene;
+            ENV_DIM[eKey] = { w: sz.x || 1, h: sz.y || 1, d: sz.z || 1, minY: bb.min.y };
             finishEnvOne();
+            doneCb();
           }, undefined, function () {
-            console.warn("env GLB load fail", key);
+            console.warn("env GLB load fail", eKey);
             finishEnvOne();
+            doneCb();
           });
-        });
+        }
       }
+
+      function pumpQueue() {
+        if (nextJob >= jobs.length) return;
+        var job = jobs[nextJob++];
+        runJob(job, pumpQueue);
+      }
+
+      var initialWorkers = Math.min(MAX_CONCURRENT, jobs.length);
+      for (var w = 0; w < initialWorkers; w++) pumpQueue();
     }
 
     if (window.MeshoptDecoder && window.MeshoptDecoder.ready) {
@@ -1567,6 +1943,7 @@ window.FPS = window.FPS || {};
     gunScene: gunScene,
     gunCam: gunCam,
     gunGroup: gunGroup,
+    gunKey: _gunKey,
     gunMuzzle: gunMuzzle,
     muzzleLight: muzzleLight,
     dustPts: dustPts,
@@ -1590,6 +1967,8 @@ window.FPS = window.FPS || {};
     toFastLambert: toFastLambert,
     hardenGunObj: hardenGunObj,
     loadAllGLBs: loadAllGLBs,
+    compileCurrentLevel: compileCurrentLevel,
+    warmupGPU: warmupGPU,
     loadLevel: loadLevel,
     collide: collide,
     raycastWallDist: raycastWallDist,

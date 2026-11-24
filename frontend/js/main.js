@@ -6,7 +6,7 @@ window.FPS = window.FPS || {};
   var E = FPS.entities;
 
   var G = {
-    state: "menu",
+    state: "loading",
     levelIdx: 0,
     levelKills: 0,
     killQuota: 14,
@@ -71,8 +71,49 @@ window.FPS = window.FPS || {};
     if (el && el.textContent !== val) el.textContent = val;
   }
 
+  var _loadTips = [
+    "💡 Mẹo: Tường cao chặn đạn & tầm nhìn — thùng gỗ thấp che thân nhưng bạn vẫn bắn qua được.",
+    "💡 Mẹo: Bắn thùng xăng đỏ để kích nổ dây chuyền và quét sạch bầy xác sống.",
+    "💡 Mẹo: Hạ đủ chỉ tiêu sẽ mở khóa Cổng Thoát Hiểm — giữ vị trí trong cột sáng xanh để qua màn.",
+    "💡 Mẹo: Nhấn G để ném Bom Lửa Thánh phong tỏa hẻm hẹp, nhấn Shift để chạy nước rút."
+  ];
+  var _lastTipIdx = -1;
+
+  function updateLoadUI(pct, stageTxt, detailTxt) {
+    var p = Math.max(0, Math.min(100, Math.round(pct || 0)));
+    var bar = document.getElementById("loadBarFill");
+    if (bar) bar.style.width = p + "%";
+    setTxt("loadPct", p + "%");
+    if (stageTxt) setTxt("loadStage", stageTxt);
+    if (detailTxt) setTxt("loadDetail", detailTxt);
+    var tipIdx = Math.min(_loadTips.length - 1, Math.floor(p / 26));
+    if (tipIdx !== _lastTipIdx) {
+      _lastTipIdx = tipIdx;
+      setTxt("loadTip", _loadTips[tipIdx]);
+    }
+  }
+
+  var _stageTransTimer = null;
+  function flashStageTransition(label) {
+    var el = document.getElementById("stageLoadScr");
+    var tx = document.getElementById("stageLoadTxt");
+    if (!el) return;
+    if (_stageTransTimer) { clearTimeout(_stageTransTimer); _stageTransTimer = null; }
+    if (tx && label) tx.textContent = label;
+    el.classList.remove("hidden", "fadeOut");
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        el.classList.add("fadeOut");
+        _stageTransTimer = setTimeout(function () {
+          el.classList.add("hidden");
+          el.classList.remove("fadeOut");
+        }, 200);
+      });
+    });
+  }
+
   function hideAllOverlays() {
-    ["menu", "storyScr", "pauseScr", "endScr", "levelClearScr"].forEach(function (id) {
+    ["loadScr", "menu", "storyScr", "pauseScr", "endScr", "levelClearScr"].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.classList.add("hidden");
     });
@@ -127,8 +168,9 @@ window.FPS = window.FPS || {};
     if (!levels.length) return;
     var id = Math.max(1, Math.min(levels.length, Number(levelId) || 1));
     var levelDef = levels[id - 1];
+    var prevLevel = W.currentLevel;
 
-    if (G.state === "menu" || G.state === "end" || G.state === "story") {
+    if (G.state === "loading" || G.state === "menu" || G.state === "end" || G.state === "story") {
       resetRunState();
     } else {
       E.clearZombies();
@@ -141,6 +183,8 @@ window.FPS = window.FPS || {};
     }
 
     W.loadLevel(levelDef);
+    if (W.compileCurrentLevel) W.compileCurrentLevel();
+
     var sp = levelDef.playerSpawn || { x: 0, z: 0, yaw: 0 };
     playerPos.set(sp.x, 1.7, sp.z);
     W.collide(playerPos, 0.55, false);
@@ -173,6 +217,7 @@ window.FPS = window.FPS || {};
 
     G.state = "playing";
     document.body.classList.add("playing");
+    if (typeof startAnimLoop === "function") startAnimLoop();
 
     var initCount = Math.min(levelDef.maxAlive || 12, 4 + id);
     for (var i = 0; i < initCount; i++) {
@@ -180,6 +225,9 @@ window.FPS = window.FPS || {};
     }
 
     var lvTitle = FPS.LANG === "en" ? levelDef.nameEn : levelDef.nameVi;
+    if (prevLevel && prevLevel !== levelDef) {
+      flashStageTransition((FPS.LANG === "en" ? "Preparing " : "Đang chuẩn bị ") + lvTitle + "...");
+    }
     if (FPS.ui) {
       if (FPS.ui.announce) FPS.ui.announce(lvTitle, FPS.t("stageStartSub"));
       if (FPS.ui.updateHUD) FPS.ui.updateHUD();
@@ -453,11 +501,15 @@ window.FPS = window.FPS || {};
 
   // Menu & overlay buttons
   var btnStart = document.getElementById("btnStart");
-  if (btnStart) btnStart.onclick = function () { startCampaign(selectedLevelId); };
+  if (btnStart) btnStart.onclick = function () {
+    if (G.state === "loading") return;
+    startCampaign(selectedLevelId);
+  };
 
   var btnStory = document.getElementById("btnStory");
   if (btnStory) {
     btnStory.onclick = function () {
+      if (G.state === "loading") return;
       document.getElementById("menu").classList.add("hidden");
       document.getElementById("storyScr").classList.remove("hidden");
     };
@@ -465,6 +517,7 @@ window.FPS = window.FPS || {};
   var btnStoryGo = document.getElementById("btnStoryGo");
   if (btnStoryGo) {
     btnStoryGo.onclick = function () {
+      if (G.state === "loading") return;
       document.getElementById("storyScr").classList.add("hidden");
       startCampaign(selectedLevelId);
     };
@@ -706,6 +759,10 @@ window.FPS = window.FPS || {};
   var _fpsFrames = 0;
   var _fpsWin = performance.now();
   var _frameNo = 0;
+  var _lastSceneCalls = 0;
+  var _lastSceneTris = 0;
+  var _lastGunCalls = 0;
+  var _lastGunTris = 0;
 
   function animate() {
     requestAnimationFrame(animate);
@@ -850,7 +907,7 @@ window.FPS = window.FPS || {};
       W.updateWorldVisuals(dt, now, G.portalUnlocked, exPct);
     }
 
-    if (playing && (_frameNo % 2) === 0 && FPS.ui) {
+    if (playing && (_frameNo % 3) === 0 && FPS.ui) {
       if (FPS.ui.drawRadar) FPS.ui.drawRadar();
       if (FPS.ui.updateExtractMarker) FPS.ui.updateExtractMarker();
     }
@@ -891,6 +948,11 @@ window.FPS = window.FPS || {};
       ga.gunParts.flash.material.opacity = Math.max(0, ga.gunParts.flash.material.opacity - dt * 9);
     }
     W.muzzleLight.intensity = Math.max(0, W.muzzleLight.intensity - dt * 520);
+    if (W.gunKey) W.gunKey.intensity = 1.6 + W.muzzleLight.intensity * 0.04;
+    if (W.flashlight) {
+      W.flashlight.visible = G.flashOn || W.muzzleLight.intensity > 2;
+      W.flashlight.intensity = (G.flashOn ? 58 : 0) + W.muzzleLight.intensity * 0.85;
+    }
     if (G.xhairKick > 0) G.xhairKick = Math.max(0, G.xhairKick - dt * 5.5);
     if (playing && FPS.ui) {
       if (FPS.ui.updateCrosshair) FPS.ui.updateCrosshair(G);
@@ -899,6 +961,8 @@ window.FPS = window.FPS || {};
     }
 
     W.renderer.render(W.scene, W.camera);
+    _lastSceneCalls = W.renderer.info.render.calls;
+    _lastSceneTris = W.renderer.info.render.triangles;
     W.gunCam.fov = W.camera.fov;
     if (W.gunCam.aspect !== W.camera.aspect) {
       W.gunCam.aspect = W.camera.aspect;
@@ -913,6 +977,8 @@ window.FPS = window.FPS || {};
     W.renderer.autoClear = false;
     W.renderer.clearDepth();
     W.renderer.render(W.gunScene, W.gunCam);
+    _lastGunCalls = W.renderer.info.render.calls;
+    _lastGunTris = W.renderer.info.render.triangles;
     W.renderer.autoClear = true;
   }
 
@@ -961,6 +1027,9 @@ window.FPS = window.FPS || {};
       bossSpawned: !!G.bossSpawned,
       bossSlain: !!G.bossSlain,
       pointLights: pointLights,
+      drawCalls: _lastSceneCalls + _lastGunCalls,
+      triangles: _lastSceneTris + _lastGunTris,
+      textures: W.renderer && W.renderer.info && W.renderer.info.memory ? W.renderer.info.memory.textures : 0,
       playerPos: { x: +playerPos.x.toFixed(2), y: +playerPos.y.toFixed(2), z: +playerPos.z.toFixed(2) }
     };
   }
@@ -1072,6 +1141,16 @@ window.FPS = window.FPS || {};
     },
     throwFlare: function () {
       return E.throwFlare();
+    },
+    getLoadState: function () {
+      var ls = document.getElementById("loadScr");
+      var mn = document.getElementById("menu");
+      return {
+        loadDone: !!window.__loadDone,
+        state: G.state,
+        loadScrHidden: !ls || ls.classList.contains("hidden"),
+        menuHidden: !mn || mn.classList.contains("hidden")
+      };
     }
   };
 
@@ -1086,13 +1165,74 @@ window.FPS = window.FPS || {};
     W.renderer.setSize(innerWidth, innerHeight);
   });
 
+  var _animStarted = false;
+  function startAnimLoop() {
+    if (_animStarted) return;
+    _animStarted = true;
+    W.clock.getDelta();
+    animate();
+  }
+
   if (FPS.ui) {
     if (FPS.ui.applyLang) FPS.ui.applyLang();
     if (FPS.ui.updateHUD) FPS.ui.updateHUD();
   }
   refreshMenuUI();
-  W.loadAllGLBs(function () {
+
+  var _bootFinished = false;
+  var _warmupBegun = false;
+  var _loadSafetyTimer = null;
+
+  function finishBoot() {
+    if (_bootFinished) return;
+    _bootFinished = true;
+    if (_loadSafetyTimer) { clearTimeout(_loadSafetyTimer); _loadSafetyTimer = null; }
+    var totRes = (FPS.ENV_KEYS ? FPS.ENV_KEYS.length : 22) + 11;
+    updateLoadUI(100, "Sẵn sàng chiến đấu!", totRes + " / " + totRes + " tài nguyên · Shader GPU đã biên dịch");
+    startAnimLoop();
+
+    if (G.state === "loading") {
+      G.state = "menu";
+      var mn = document.getElementById("menu");
+      if (mn) mn.classList.remove("hidden");
+    }
     if (FPS.ui && FPS.ui.updateHUD) FPS.ui.updateHUD();
-  });
-  animate();
+    refreshMenuUI();
+
+    var ls = document.getElementById("loadScr");
+    if (ls && !ls.classList.contains("hidden")) {
+      ls.classList.add("loadFadeOut");
+      setTimeout(function () {
+        ls.classList.add("hidden");
+        ls.classList.remove("loadFadeOut");
+      }, 260);
+    }
+  }
+
+  function handleLoadProgress(p) {
+    if (!p) return;
+    var detail = p.phase === "warmup"
+      ? "Shader GPU & kết cấu"
+      : (p.loaded + " / " + p.total + " tài nguyên 3D");
+    updateLoadUI(p.pct, p.label, detail);
+  }
+
+  function beginWarmup() {
+    if (_warmupBegun) return;
+    _warmupBegun = true;
+    if (typeof W.warmupGPU === "function") {
+      W.warmupGPU(handleLoadProgress, finishBoot);
+    } else {
+      window.__loadDone = true;
+      finishBoot();
+    }
+  }
+
+  var _initTot = (FPS.ENV_KEYS ? FPS.ENV_KEYS.length : 22) + 11;
+  updateLoadUI(2, "Đang khởi tạo bộ giải mã 3D...", "0 / " + _initTot + " tài nguyên 3D");
+  _loadSafetyTimer = setTimeout(function () {
+    beginWarmup();
+  }, 15000);
+
+  W.loadAllGLBs(beginWarmup, handleLoadProgress);
 })();

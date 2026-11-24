@@ -63,8 +63,26 @@
   <button class="mbtn" id="btnPauseM">II</button>
 </div>
 
+<!-- LOADING -->
+<div class="overlay" id="loadScr">
+  <div class="loadCard">
+    <div class="loadBadge">v8.0 · PRELOADING &amp; GPU WARMUP</div>
+    <h1 class="title">ZOMBIE <span data-i="fog">SƯƠNG MÙ</span></h1>
+    <p id="loadStage">Đang khởi tạo bộ giải mã 3D...</p>
+    <div class="loadBarBg"><div id="loadBarFill"></div></div>
+    <div class="loadMeta"><span id="loadDetail">0 / 33 tài nguyên</span><b id="loadPct">0%</b></div>
+    <p id="loadTip">💡 Mẹo: Tường cao chặn đạn &amp; tầm nhìn — thùng gỗ thấp che thân nhưng bạn vẫn bắn qua được.</p>
+  </div>
+</div>
+
+<!-- STAGE TRANSITION LOADING -->
+<div id="stageLoadScr" class="hidden">
+  <div class="stageSpinner"></div>
+  <div id="stageLoadTxt">Đang chuẩn bị chiến trường...</div>
+</div>
+
 <!-- MENU -->
-<div class="overlay" id="menu">
+<div class="overlay hidden" id="menu">
  <div class="menuCard">
   <div class="menuTop">
     <div id="verBadge">v8.0 · TACTICAL EXTRACTION FPS · 5 LEVELS</div>

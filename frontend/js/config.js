@@ -233,10 +233,10 @@ FPS.ZB_SPEC = {
 };
 
 FPS.ENV_KEYS = [
-  "wall_door", "wall_step", "pillar", "torch", "stairs", "rocks", "cobble",
+  "wall_step", "pillar", "torch", "stairs", "rocks", "cobble",
   "house", "watchtower", "pagoda", "well", "windmill", "pine", "deadtree",
-  "oak", "bush", "mushroom", "cart", "crate", "barrel", "barrelstack",
-  "table", "chest", "horsecart", "lantern"
+  "oak", "bush", "mushroom", "cart", "crate", "barrelstack",
+  "table", "chest", "horsecart"
 ];
 
 FPS.ENV_TINT = {

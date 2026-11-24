@@ -3,6 +3,7 @@ window.FPS = window.FPS || {};
 
 FPS.ui = (function () {
   var _cache = {};
+  var _elCache = {};
   var _annTimer = null;
   var _toastTimer = null;
   var _hitTimer = null;
@@ -10,11 +11,25 @@ FPS.ui = (function () {
   var _projV = null;
   var _viewV = null;
   var _lastSelect = { profile: null, selectedLevelId: 1, onPickLevel: null };
+  var _radarWallCanvas = null;
+  var _radarWallLvId = null;
+  var _radarWallScale = 0;
+  var _radarWallCount = -1;
+  var _radarWallSize = 0;
+
+  function _el(id) {
+    var e = _elCache[id];
+    if (!e || !e.isConnected) {
+      e = document.getElementById(id);
+      _elCache[id] = e;
+    }
+    return e;
+  }
 
   function _setTxt(id, v) {
     if (_cache[id] !== v) {
       _cache[id] = v;
-      var el = document.getElementById(id);
+      var el = _el(id);
       if (el) el.textContent = v;
     }
   }
@@ -23,7 +38,7 @@ FPS.ui = (function () {
     var k = id + ":" + prop;
     if (_cache[k] !== val) {
       _cache[k] = val;
-      var el = document.getElementById(id);
+      var el = _el(id);
       if (el) el.style[prop] = val;
     }
   }
@@ -33,7 +48,7 @@ FPS.ui = (function () {
     var b = !!on;
     if (_cache[k] !== b) {
       _cache[k] = b;
-      var el = document.getElementById(id);
+      var el = _el(id);
       if (el) el.classList.toggle(cls, b);
     }
   }
@@ -400,36 +415,52 @@ FPS.ui = (function () {
     ctx.arc(cx, cy, R + 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // Inner rotated walls pass (clipped cleanly to radar disc)
+    // Inner rotated static walls layer (cached offscreen once per level)
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, R - 1, 0, Math.PI * 2);
     ctx.clip();
 
     if (level && Array.isArray(level.walls)) {
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(yaw);
-      var walls = level.walls;
-      for (var wi = 0; wi < walls.length; wi++) {
-        var wl = walls[wi];
-        var dxw = wl.x - pp.x;
-        var dzw = wl.z - pp.z;
-        if (Math.abs(dxw) > range + 20 || Math.abs(dzw) > range + 20) continue;
-        var tall = (wl.h || 2) >= 1.6;
+      if (_radarWallLvId !== level.id || _radarWallScale !== scale || _radarWallCount !== level.walls.length || !_radarWallCanvas) {
+        _radarWallLvId = level.id;
+        _radarWallScale = scale;
+        _radarWallCount = level.walls.length;
+        var arena = level.arena || 96;
+        _radarWallSize = Math.ceil((arena + 16) * scale);
+        if (!_radarWallCanvas) _radarWallCanvas = document.createElement("canvas");
+        _radarWallCanvas.width = _radarWallSize;
+        _radarWallCanvas.height = _radarWallSize;
+        var wctx = _radarWallCanvas.getContext("2d");
+        if (wctx) {
+          wctx.clearRect(0, 0, _radarWallSize, _radarWallSize);
+          var mid = _radarWallSize * 0.5;
+          var walls = level.walls;
+          wctx.lineWidth = 0.8;
+          for (var wi = 0; wi < walls.length; wi++) {
+            var wl = walls[wi];
+            var tall = (wl.h || 2) >= 1.6;
+            wctx.save();
+            wctx.translate(mid + wl.x * scale, mid + wl.z * scale);
+            if (wl.ry) wctx.rotate(-wl.ry);
+            wctx.fillStyle = tall ? "rgba(96,104,112,0.88)" : "rgba(128,124,108,0.62)";
+            wctx.strokeStyle = tall ? "rgba(175,186,192,0.45)" : "rgba(195,186,158,0.32)";
+            var rw = wl.w * scale;
+            var rd = wl.d * scale;
+            wctx.fillRect(-rw * 0.5, -rd * 0.5, rw, rd);
+            wctx.strokeRect(-rw * 0.5, -rd * 0.5, rw, rd);
+            wctx.restore();
+          }
+        }
+      }
+      if (_radarWallCanvas) {
         ctx.save();
-        ctx.translate(dxw * scale, dzw * scale);
-        if (wl.ry) ctx.rotate(-wl.ry);
-        ctx.fillStyle = tall ? "rgba(96,104,112,0.88)" : "rgba(128,124,108,0.62)";
-        ctx.strokeStyle = tall ? "rgba(175,186,192,0.45)" : "rgba(195,186,158,0.32)";
-        ctx.lineWidth = 0.8;
-        var rw = wl.w * scale;
-        var rd = wl.d * scale;
-        ctx.fillRect(-rw * 0.5, -rd * 0.5, rw, rd);
-        ctx.strokeRect(-rw * 0.5, -rd * 0.5, rw, rd);
+        ctx.translate(cx, cy);
+        ctx.rotate(yaw);
+        var halfS = _radarWallSize * 0.5;
+        ctx.drawImage(_radarWallCanvas, -(halfS + pp.x * scale), -(halfS + pp.z * scale));
         ctx.restore();
       }
-      ctx.restore();
     }
 
     // Subtle range rings & crosshairs
