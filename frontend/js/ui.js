@@ -37,7 +37,34 @@ function announce(big,sub){
   document.getElementById('annSub').textContent=sub||'';
   a.style.opacity=1;clearTimeout(annTimer);annTimer=setTimeout(function(){a.style.opacity=0;},2400);
 }
-function zoneKeyFor(x,z){if(z<-24)return 'zChurch';if(z>24)return 'zGraveyard';if(x>24)return 'zMarket';if(x<-24)return 'zForest';return 'zCross';}
+function zoneKeyFor(x,z){
+  if(z<-76)return 'zRidge';if(z<-26)return 'zChurch';
+  if(z>76)return 'zRiver';if(z>26)return 'zGraveyard';
+  if(x>76)return 'zFarm';if(x>26)return 'zMarket';
+  if(x<-76)return 'zShrine';if(x<-26)return 'zForest';
+  return 'zCross';
+}
+function drawFpsRadar(){
+  var c=document.getElementById('fpsRadar');if(!c)return;
+  var ctx=c.getContext('2d'),w=c.width,h=c.height,cx=w/2,cy=h/2,R=cx-6,range=85;
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='rgba(8,12,10,0.84)';ctx.beginPath();ctx.arc(cx,cy,R+4,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(160,180,150,0.28)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,R*0.5,0,Math.PI*2);ctx.stroke();
+  var sy=Math.sin(G.yaw),co=Math.cos(G.yaw);
+  function plot(wx,wz,col,sz){
+    var dx=wx-playerPos.x,dz=wz-playerPos.z;
+    // Rotate world into camera-up frame (forward along -yaw is up on canvas)
+    var rx=dx*co-dz*sy,rz=dx*sy+dz*co;
+    var px=cx+(rx/range)*R,py=cy+(rz/range)*R;
+    var d=Math.hypot(px-cx,py-cy);
+    if(d>R-2){px=cx+(px-cx)/d*(R-2);py=cy+(py-cy)/d*(R-2);}
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(px,py,sz,0,Math.PI*2);ctx.fill();
+  }
+  for(var ni=0;ni<notes.length;ni++)plot(notes[ni].g.position.x,notes[ni].g.position.z,'#ffd45a',2.8);
+  for(var zi=0;zi<zombies.length;zi++){var z=zombies[zi];if(!z.dead)plot(z.group.position.x,z.group.position.z,z.isBoss?'#ff3020':'rgba(255,95,85,0.9)',z.isBoss?3.6:2.0);}
+  ctx.fillStyle='#ffffff';ctx.beginPath();ctx.moveTo(cx,cy-4.5);ctx.lineTo(cx-3.2,cy+3.5);ctx.lineTo(cx+3.2,cy+3.5);ctx.closePath();ctx.fill();
+}
 function checkZone(){
   if(G.state!=='playing')return;
   var k=zoneKeyFor(playerPos.x,playerPos.z);if(k===curZone)return;

@@ -205,6 +205,7 @@ function animate(){
     if(rainPts.visible){rainPts.position.y-=dt*3.2;if(rainPts.position.y<-3)rainPts.position.y=0;}
     streetLights.forEach(function(sl){sl.halo.lookAt(camera.position);});
   }
+  if(playing&&(_frameNo%4)===0&&typeof drawFpsRadar==='function')drawFpsRadar();
   // Zombies update
   for(var zi=zombies.length-1;zi>=0;zi--){
     var z=zombies[zi],gp=z.group.position;

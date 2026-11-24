@@ -178,8 +178,8 @@ function spawnZombie(type){
   if(z)resetZombie(z);else z=makeZombie(type);
   var ang=Math.random()*Math.PI*2,dist=26+Math.random()*8;
   var x=playerPos.x+Math.cos(ang)*dist,zp=playerPos.z+Math.sin(ang)*dist;
-  if(type==='boss'){x=(Math.random()*10-5);zp=-34-Math.random()*4;}
-  x=Math.max(-ARENA+1,Math.min(ARENA-1,x));zp=Math.max(-ARENA+1,Math.min(ARENA-1,zp));
+  if(type==='boss'){x=playerPos.x+(Math.random()*14-7);zp=playerPos.z-(30+Math.random()*6);}
+  x=Math.max(-ARENA+6,Math.min(ARENA-6,x));zp=Math.max(-ARENA+6,Math.min(ARENA-6,zp));
   if(type!=='boss'&&Math.hypot(x-playerPos.x,zp-playerPos.z)<13){x=-x;zp=-zp;}
   z.group.position.set(x,-2.1*z.group.scale.y,zp);z.spawnT=1.4;
   _burstV.set(x,0.4,zp);burst(_burstV,0x5a4a33,6);

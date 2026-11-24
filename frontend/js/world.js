@@ -1,5 +1,5 @@
 "use strict";
-var ARENA=72;
+var ARENA=135;
 var scene,camera,renderer,clock;
 var flashlight,flashTarget,moonLight,streetLights=[];
 var colliders=[];
@@ -9,8 +9,8 @@ var HIT_FLASH_MAT=new THREE.MeshBasicMaterial({color:0xff3b30});
 
 scene=new THREE.Scene();
 scene.background=new THREE.Color(0x070a0f);
-scene.fog=new THREE.FogExp2(0x0a0e13,0.029);
-camera=new THREE.PerspectiveCamera(74,innerWidth/innerHeight,0.1,200);
+scene.fog=new THREE.FogExp2(0x0a0e13,0.021);
+camera=new THREE.PerspectiveCamera(74,innerWidth/innerHeight,0.1,260);
 camera.position.set(0,1.7,40);
 
 renderer=new THREE.WebGLRenderer({antialias:false,powerPreference:'high-performance'});
@@ -35,13 +35,20 @@ var gCanvas=document.createElement('canvas');gCanvas.width=gCanvas.height=256;va
 gx.fillStyle='#333830';gx.fillRect(0,0,256,256);
 for(var i=0;i<2200;i++){gx.fillStyle=['#2a2e26','#3d4236','#31352c','#464c3c'][i%4];gx.fillRect(Math.random()*256,Math.random()*256,3,3);}
 for(var i=0;i<110;i++){gx.fillStyle='#525c42';gx.fillRect(Math.random()*256,Math.random()*256,2,7);}
-var gTex=new THREE.CanvasTexture(gCanvas);gTex.wrapS=gTex.wrapT=THREE.RepeatWrapping;gTex.repeat.set(22,22);
-var ground=new THREE.Mesh(new THREE.PlaneGeometry(175,175),new THREE.MeshLambertMaterial({map:gTex,color:0xc2c7b2}));
+var gTex=new THREE.CanvasTexture(gCanvas);gTex.wrapS=gTex.wrapT=THREE.RepeatWrapping;gTex.repeat.set(38,38);
+var ground=new THREE.Mesh(new THREE.PlaneGeometry(310,310),new THREE.MeshLambertMaterial({map:gTex,color:0xc2c7b2}));
 ground.rotation.x=-Math.PI/2;scene.add(ground);
 
 var pathMat=new THREE.MeshLambertMaterial({color:0x3a342a});
-var p1=new THREE.Mesh(new THREE.PlaneGeometry(5,150),pathMat);p1.rotation.x=-Math.PI/2;p1.position.y=0.01;scene.add(p1);
-var p2=new THREE.Mesh(new THREE.PlaneGeometry(150,5),pathMat);p2.rotation.x=-Math.PI/2;p2.position.y=0.011;scene.add(p2);
+var p1=new THREE.Mesh(new THREE.PlaneGeometry(5,270),pathMat);p1.rotation.x=-Math.PI/2;p1.position.y=0.01;scene.add(p1);
+var p2=new THREE.Mesh(new THREE.PlaneGeometry(270,5),pathMat);p2.rotation.x=-Math.PI/2;p2.position.y=0.011;scene.add(p2);
+// Outer village ring roads (+/-88) + South Haunted River & Wooden Pier
+var pRN=new THREE.Mesh(new THREE.PlaneGeometry(180,4),pathMat);pRN.rotation.x=-Math.PI/2;pRN.position.set(0,0.012,-88);scene.add(pRN);
+var pRS=new THREE.Mesh(new THREE.PlaneGeometry(180,4),pathMat);pRS.rotation.x=-Math.PI/2;pRS.position.set(0,0.012,88);scene.add(pRS);
+var pRE=new THREE.Mesh(new THREE.PlaneGeometry(4,180),pathMat);pRE.rotation.x=-Math.PI/2;pRE.position.set(88,0.012,0);scene.add(pRE);
+var pRW=new THREE.Mesh(new THREE.PlaneGeometry(4,180),pathMat);pRW.rotation.x=-Math.PI/2;pRW.position.set(-88,0.012,0);scene.add(pRW);
+var riverMat=new THREE.MeshLambertMaterial({color:0x0f2536});
+var river=new THREE.Mesh(new THREE.PlaneGeometry(290,26),riverMat);river.rotation.x=-Math.PI/2;river.position.set(0,0.015,127);scene.add(river);
 
 var wallMat=new THREE.MeshLambertMaterial({color:0x4a463e});
 var roofMat=new THREE.MeshLambertMaterial({color:0x2c2622});
@@ -66,10 +73,13 @@ function fenceRun(x,z,len,rot,sp){var g=new THREE.Group();var _sp=sp||1.6;var n=
 
 // Base structural landmarks
 (function buildLandmarks(){
-  fenceRun(0,-ARENA-1.5,150,0,3.2);fenceRun(0,ARENA+1.5,150,0,3.2);fenceRun(-ARENA-1.5,0,150,Math.PI/2,3.2);fenceRun(ARENA+1.5,0,150,Math.PI/2,3.2);
+  fenceRun(0,-ARENA-1.5,274,0,5.5);fenceRun(0,ARENA+1.5,274,0,5.5);fenceRun(-ARENA-1.5,0,274,Math.PI/2,5.5);fenceRun(ARENA+1.5,0,274,Math.PI/2,5.5);
   fenceRun(-13,-41.5,14,0);fenceRun(13,-41.5,14,0);
   fenceRun(-16,33,12,0.15);fenceRun(16,33,12,-0.1);
-  // Ruined church tower & cross (North boss landmark)
+  // Wooden pier dock at South Haunted River
+  addBox(0,118,4.2,0.16,18,woodMat,0.14);
+  [-1.9,1.9].forEach(function(px){[110,116,122,126].forEach(function(pz){addBox(px,pz,0.22,0.9,0.22,woodMat,0.45);});});
+  // Ruined church tower & cross (North landmark)
   var g=new THREE.Group();
   var b=new THREE.Mesh(new THREE.BoxGeometry(11,7.5,17),darkStone);b.position.y=3.75;g.add(b);
   var roof=new THREE.Mesh(new THREE.ConeGeometry(8.6,3.8,4),roofMat);roof.position.y=9.4;roof.rotation.y=Math.PI/4;roof.scale.set(1,1,1.55);g.add(roof);
@@ -78,6 +88,7 @@ function fenceRun(x,z,len,rot,sp){var g=new THREE.Group();var _sp=sp||1.6;var n=
   var c2=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.32,0.32),new THREE.MeshBasicMaterial({color:0xffdf8a}));c2.position.set(0,16.9,8.5);g.add(c2);
   g.position.set(0,0,-54);scene.add(g);addColliderBox(0,-54,5.9,9);addColliderBox(0,-45.5,2.1,2.1);
   house(-18,42,0.9);tree(12,44,1.25);tree(-14,50,1.1);
+  house(-20,92,0.2);house(22,96,-0.25);house(96,22,1.2);house(114,42,-0.4);house(0,-114,0);
 })();
 
 // Lamp poles with radial halo sprites (zero PointLights for 60 FPS!)
@@ -95,11 +106,12 @@ function lamp(x,z){
   addColliderCircle(x,z,0.3);
 }
 lamp(-6,-6);lamp(7,13);lamp(-18,24);lamp(18,-26);lamp(26,6);lamp(3.2,30);lamp(-3.2,-32);lamp(44,-10);lamp(-6,-40);
+lamp(0,82);lamp(0,-82);lamp(82,0);lamp(-82,0);lamp(88,88);lamp(-88,88);lamp(88,-88);lamp(-88,-88);
 
 var wisps=[],wispMat=new THREE.MeshBasicMaterial({color:0x9fb2c8,transparent:true,opacity:0.036,depthWrite:false});
-for(var i=0;i<10;i++){var wp=new THREE.Mesh(new THREE.PlaneGeometry(16+Math.random()*10,4),wispMat);wp.position.set(Math.random()*80-40,1.2+Math.random()*1.2,Math.random()*80-40);wp.rotation.y=Math.random()*Math.PI;scene.add(wp);wisps.push({m:wp,s:0.25+Math.random()*0.4});}
+for(var i=0;i<16;i++){var wp=new THREE.Mesh(new THREE.PlaneGeometry(18+Math.random()*12,4),wispMat);wp.position.set(Math.random()*240-120,1.2+Math.random()*1.2,Math.random()*240-120);wp.rotation.y=Math.random()*Math.PI;scene.add(wp);wisps.push({m:wp,s:0.25+Math.random()*0.4});}
 
-function makePoints(n,size,color,op){var geo=new THREE.BufferGeometry(),arr=new Float32Array(n*3);for(var i=0;i<n;i++){arr[i*3]=(Math.random()-0.5)*76;arr[i*3+1]=0.5+Math.random()*11;arr[i*3+2]=(Math.random()-0.5)*76;}geo.setAttribute('position',new THREE.BufferAttribute(arr,3));var p=new THREE.Points(geo,new THREE.PointsMaterial({color:color,size:size,transparent:true,opacity:op,depthWrite:false}));scene.add(p);return p;}
+function makePoints(n,size,color,op){var geo=new THREE.BufferGeometry(),arr=new Float32Array(n*3);for(var i=0;i<n;i++){arr[i*3]=(Math.random()-0.5)*240;arr[i*3+1]=0.5+Math.random()*11;arr[i*3+2]=(Math.random()-0.5)*240;}geo.setAttribute('position',new THREE.BufferAttribute(arr,3));var p=new THREE.Points(geo,new THREE.PointsMaterial({color:color,size:size,transparent:true,opacity:op,depthWrite:false}));scene.add(p);return p;}
 var dustPts=makePoints(120,0.05,0xfff2cf,0.45);
 var rainPts=makePoints(280,0.08,0x9fc0e0,0.3);
 var crows=[];
@@ -199,11 +211,11 @@ window.__zbTexOk=function(){
   return out;
 };
 
-// Spatial-filtered collision check (skips colliders >8m away)
+// Spatial-filtered collision check (skips colliders >12m away)
 function collide(pos,r){
   for(var i=0;i<colliders.length;i++){
     var c=colliders[i];
-    if(Math.abs(c.x-pos.x)>8||Math.abs(c.z-pos.z)>8)continue;
+    if(Math.abs(c.x-pos.x)>12||Math.abs(c.z-pos.z)>12)continue;
     if(c.box){
       var cx=Math.max(c.x-c.hw,Math.min(c.x+c.hw,pos.x)),cz=Math.max(c.z-c.hd,Math.min(c.z+c.hd,pos.z));
       var dx=pos.x-cx,dz=pos.z-cz,d2=dx*dx+dz*dz;
@@ -276,6 +288,29 @@ function buildEnv(){
   envPlaceH('lantern',3.5,-4.5,2.1,0.2,'circle');envPlaceH('lantern',-4.5,3.5,2.1,1.1,'circle');envPlaceH('lantern',5,5.5,2.1,0.6,'circle');envPlaceH('lantern',-5.5,-5,2.1,1.9,'circle');
   envPlaceH('house',24,-34,5.5,-0.5,'box');
   envPlaceH('well',-8,-11,1.3,0.8,'circle');
+  // Outer North — Old Watchtower Ridge
+  envPlaceH('wall_door',0,-86,6.0,0,'gate');
+  envPlaceH('wall_step',-6.5,-86,2.0,0,'box');envPlaceH('wall_step',6.5,-86,2.0,0,'box');
+  envPlaceH('watchtower',-16,-98,8.5,0.3,'box');envPlaceH('watchtower',16,-98,8.5,-0.3,'box');
+  envPlaceH('torch',-4,-92,2.3,0,'circle');envPlaceH('torch',4,-92,2.3,0,'circle');
+  envPlaceW('cobble',0,-95,8,0);
+  // Outer East — Windmill Farmlands
+  envPlaceH('windmill',108,-14,10.5,-0.4,'box');
+  envPlaceH('horsecart',92,-6,1.8,0.8,'box');envPlaceH('cart',104,10,1.7,2.1,'box');
+  envPlaceH('barrelstack',96,4,1.7,0.4,'circle');envPlaceH('chest',106,16,0.9,0.5,'circle');
+  envPlaceH('lantern',90,-10,2.1,0,'circle');envPlaceH('lantern',100,14,2.1,0.5,'circle');
+  // Outer West — Deep Forest Shrine
+  envPlaceH('pagoda',-102,-4,6.8,0.3,'box');
+  envPlaceH('stairs',-95,-4,1.1,Math.PI/2,null);
+  envPlaceH('well',-90,4,1.5,0.2,'circle');
+  envPlaceH('pine',-92,-22,6.4,0.4,'circle');envPlaceH('pine',-114,-18,6.8,1.5,'circle');
+  envPlaceH('oak',-116,12,5.6,2.1,'circle');envPlaceH('deadtree',-96,20,5.0,0.8,'circle');
+  envPlaceH('rocks',-108,16,1.6,1.2,'circle');envPlaceH('lantern',-88,-8,2.1,0,'circle');
+  // Outer South — Haunted River Pier approach
+  envPlaceH('cart',14,102,1.7,1.4,'box');envPlaceH('barrelstack',-12,104,1.7,0.2,'circle');
+  envPlaceH('crate',-9,98,1.15,0.5,'box');envPlaceH('chest',8,108,0.9,0.2,'circle');
+  envPlaceH('lantern',-5,110,2.1,0,'circle');envPlaceH('lantern',5,110,2.1,0,'circle');
+  envPlaceW('cobble',0,104,7,0);
   window.__envTemplatesLoaded=Object.keys(ENV_T).length;
   window.__envBuilt=window.__envTemplatesLoaded>0;
 }
