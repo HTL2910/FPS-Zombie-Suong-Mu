@@ -268,6 +268,63 @@ FPS.ui = (function () {
     }
   }
 
+  function _collectUnlockedNotes(prof) {
+    var set = {};
+    var p = prof || _lastProf || _emptyObj;
+    if (Array.isArray(p.notesDiscovered)) {
+      for (var i = 0; i < p.notesDiscovered.length; i++) set[String(p.notesDiscovered[i])] = true;
+    }
+    var g = FPS.state && FPS.state.G;
+    if (g && g._unlockedNotes) {
+      for (var k in g._unlockedNotes) {
+        if (Object.prototype.hasOwnProperty.call(g._unlockedNotes, k) && g._unlockedNotes[k]) set[k] = true;
+      }
+    }
+    var hi = Number(p.highestLevel) || 1;
+    var chs = (FPS.STORY && FPS.STORY.chapters) || _emptyArr;
+    for (var ci = 0; ci < chs.length; ci++) {
+      if (hi > chs[ci].id) set[chs[ci].noteId] = true;
+    }
+    return set;
+  }
+
+  function renderStoryDossier(profile) {
+    if (profile) _lastProf = profile;
+    var wrap = _el("storyChapters");
+    if (!wrap) return;
+    var L = FPS.LANG || "vi";
+    var chs = (FPS.STORY && FPS.STORY.chapters) || _emptyArr;
+    var unlocked = _collectUnlockedNotes(_lastProf);
+    var count = 0;
+    wrap.innerHTML = "";
+    for (var i = 0; i < chs.length; i++) {
+      var ch = chs[i];
+      var isOpen = !!unlocked[ch.noteId];
+      if (isOpen) count++;
+      var item = document.createElement("div");
+      item.className = "dossierItem" + (isOpen ? "" : " locked");
+      var meta = document.createElement("div");
+      meta.className = "dossierMeta";
+      var left = document.createElement("span");
+      left.textContent = (L === "en" ? (ch.titleEn || ch.titleVi) : (ch.titleVi || ch.titleEn));
+      var right = document.createElement("span");
+      right.textContent = isOpen
+        ? ((L === "en" ? ch.timeEn : ch.timeVi) + " · ✓")
+        : ("🔒 " + _t("storyLockedNote", "Chưa giải mã — Hoàn thành Màn", "Locked — Clear Stage") + " " + ch.id);
+      meta.appendChild(left);
+      meta.appendChild(right);
+      var body = document.createElement("div");
+      body.className = "dossierText";
+      body.textContent = isOpen
+        ? (L === "en" ? (ch.noteTextEn || ch.noteTextVi) : (ch.noteTextVi || ch.noteTextEn))
+        : (L === "en" ? "Complete this stage to recover Linh's encrypted field note." : "Hoàn thành màn này để giải mã trang nhật ký của Linh.");
+      item.appendChild(meta);
+      item.appendChild(body);
+      wrap.appendChild(item);
+    }
+    _setTxt("storyNoteCount", count + " / " + chs.length);
+  }
+
   function applyLang(lang) {
     if (lang === "vi" || lang === "en") FPS.LANG = lang;
     var L = FPS.LANG || "vi";
@@ -315,6 +372,7 @@ FPS.ui = (function () {
     if (FPS.LEVELS && _el("levelGrid")) {
       renderLevelSelect(_lastSelect.profile, _lastSelect.selectedLevelId, _lastSelect.onPickLevel);
     }
+    renderStoryDossier(_lastProf);
     updateWeaponLabel();
     updateHUD();
     updateLockHint();
@@ -899,6 +957,20 @@ FPS.ui = (function () {
     if (titleEl) titleEl.textContent = _t("levelClear", "HOÀN THÀNH MÀN!", "STAGE CLEARED!") + (lvName ? " · " + lvName : "");
     if (subEl) subEl.textContent = _t("levelClearSub", "Chọn 1 nâng cấp chiến thuật trước khi tiến sang màn tiếp theo", "Pick 1 tactical perk before deploying to the next stage");
 
+    var scCard = _el("lvClearStory");
+    var scHead = _el("lvClearStoryHead");
+    var scBody = _el("lvClearStoryBody");
+    var ch = (FPS.STORY && Array.isArray(FPS.STORY.chapters) && levelDef) ? FPS.STORY.chapters[levelDef.id - 1] : null;
+    if (scCard && scHead && scBody) {
+      if (ch) {
+        scHead.textContent = (L === "en" ? ch.timeEn : ch.timeVi) + " · " + (L === "en" ? (ch.clearTitleEn || ch.clearTitleVi) : (ch.clearTitleVi || ch.clearTitleEn));
+        scBody.textContent = L === "en" ? (ch.clearEn || ch.clearVi) : (ch.clearVi || ch.clearEn);
+        scCard.classList.remove("hidden");
+      } else {
+        scCard.classList.add("hidden");
+      }
+    }
+
     var wrap = _el("perkCards");
     if (wrap) {
       wrap.innerHTML = "";
@@ -957,7 +1029,26 @@ FPS.ui = (function () {
       et.textContent = isWin ? _t("winT", "CHIẾN DỊCH HOÀN TẤT!", "CAMPAIGN COMPLETE!") : _t("loseT", "BẠN ĐÃ GỤC NGÃ", "YOU HAVE FALLEN");
       et.className = "title" + (isWin ? " win" : "");
     }
-    _setTxt("endSub", isWin ? _t("winS", "", "") : _t("loseS", "", ""));
+    var L = FPS.LANG || "vi";
+    var unlocked = _collectUnlockedNotes(_lastProf);
+    var chs = (FPS.STORY && FPS.STORY.chapters) || _emptyArr;
+    var noteCount = 0;
+    for (var ni = 0; ni < chs.length; ni++) if (unlocked[chs[ni].noteId]) noteCount++;
+    var subText;
+    if (isWin) {
+      subText = (chs.length > 0 && noteCount >= chs.length && FPS.STORY && FPS.STORY.winTrueVi)
+        ? (L === "en" ? FPS.STORY.winTrueEn : FPS.STORY.winTrueVi)
+        : _t("winS", "", "");
+    } else {
+      var stLose = FPS.STORY && FPS.STORY.loseByStage && FPS.STORY.loseByStage[levelNum];
+      subText = stLose ? (L === "en" ? (stLose.en || stLose.vi) : (stLose.vi || stLose.en)) : _t("loseS", "", "");
+    }
+    _setTxt("endSub", subText);
+    var endLoreEl = _el("endLore");
+    if (endLoreEl) {
+      endLoreEl.textContent = "📜 " + _t("storyNotesLabel", "Hồ sơ đã thu hồi", "Notes Recovered") + ": " + noteCount + " / " + (chs.length || 5);
+      endLoreEl.classList.toggle("hidden", !(chs.length > 0));
+    }
     _setTxt("eScore", String(score));
     _setTxt("eKills", String(kills));
     _setTxt("eLevel", String(levelNum));
@@ -1225,12 +1316,14 @@ FPS.ui = (function () {
 
     renderLeaderboard(prof, lb);
     renderLevelSelect(prof, selectedLevelId || _lastSelect.selectedLevelId || 1, onPickLevel || _lastSelect.onPickLevel);
+    renderStoryDossier(prof);
     return prof;
   }
 
   return {
     applyLang: applyLang,
     renderLevelSelect: renderLevelSelect,
+    renderStoryDossier: renderStoryDossier,
     updateHUD: updateHUD,
     drawRadar: drawRadar,
     updateExtractMarker: updateExtractMarker,

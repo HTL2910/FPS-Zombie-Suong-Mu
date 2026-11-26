@@ -108,6 +108,7 @@ window.FPS = window.FPS || {};
   var _gateHintShown = false;
   var _gensDoneTriggered = false;
   var _totemsBrokenCount = 0;
+  var _totemsAllBrokenToast = false;
   var _holdLeft = 0;
   var _holdoutDoneAnnounced = false;
   var joyVec = { x: 0, y: 0 };
@@ -348,6 +349,8 @@ window.FPS = window.FPS || {};
     G.shoveRegenLockT = 0;
     G.acidBlindT = 0;
     G.stalkerCueT = 0;
+    G.notesFound = 0;
+    G._unlockedNotes = {};
     G.scrap = (FPS.SCRAP && FPS.SCRAP.starting) || 0;
     G.hsStreak = 0;
     G.hsTimer = 0;
@@ -461,6 +464,7 @@ window.FPS = window.FPS || {};
     _gateHintShown = false;
     _gensDoneTriggered = false;
     _totemsBrokenCount = 0;
+    _totemsAllBrokenToast = false;
     _holdoutDoneAnnounced = false;
     _holdLeft = (levelDef.objective && levelDef.objective.type === "holdout") ? (levelDef.objective.holdSec || 25) : 0;
     G.objState = buildObjState(levelDef);
@@ -492,7 +496,11 @@ window.FPS = window.FPS || {};
       flashStageTransition(FPS.t("stagePreparing") + " " + lvTitle + "...");
     }
     if (FPS.ui) {
-      if (FPS.ui.announce) FPS.ui.announce(lvTitle, FPS.t("stageStartSub"));
+      var storyCh = (FPS.STORY && Array.isArray(FPS.STORY.chapters)) ? FPS.STORY.chapters[id - 1] : null;
+      var startSub = storyCh
+        ? (FPS.LANG === "en" ? (storyCh.introEn || storyCh.introVi) : (storyCh.introVi || storyCh.introEn))
+        : FPS.t("stageStartSub");
+      if (FPS.ui.announce) FPS.ui.announce(lvTitle, startSub);
       if (FPS.ui.updateHUD) FPS.ui.updateHUD();
       if (FPS.ui.drawRadar) FPS.ui.drawRadar();
       if (FPS.ui.updateExtractMarker) FPS.ui.updateExtractMarker();
@@ -634,13 +642,19 @@ window.FPS = window.FPS || {};
     selectedLevelId = nextLv;
 
     if (levelDef.id < FPS.LEVELS.length) {
+      var noteKey = "note" + levelDef.id;
+      if (!G._unlockedNotes) G._unlockedNotes = {};
+      G._unlockedNotes[noteKey] = true;
+      G.notesFound = Object.keys(G._unlockedNotes).length;
       FPSApi.saveProfile({
         highestLevel: nextLv,
         score: G.score,
         wave: levelDef.id,
         level: levelDef.id,
-        killsDelta: deltaKills
+        killsDelta: deltaKills,
+        notes: [noteKey]
       });
+      if (FPS.ui && FPS.ui.renderStoryDossier) FPS.ui.renderStoryDossier();
       G.state = "levelclear";
       _lastIdleRender = 0;
       G.mouseDown = false;
@@ -749,6 +763,14 @@ window.FPS = window.FPS || {};
     var highestSave = win ? FPS.LEVELS.length : curLv;
     var deltaKills = Math.max(0, G.totalKills - savedKills);
     savedKills = G.totalKills;
+    var winNoteList = [];
+    if (win) {
+      var finalNoteKey = "note" + curLv;
+      if (!G._unlockedNotes) G._unlockedNotes = {};
+      G._unlockedNotes[finalNoteKey] = true;
+      G.notesFound = Object.keys(G._unlockedNotes).length;
+      winNoteList.push(finalNoteKey);
+    }
 
     if (FPS.ui && FPS.ui.showEndScreen) {
       FPS.ui.showEndScreen(win, { score: G.score, kills: G.totalKills, level: curLv, time: G.time });
@@ -773,7 +795,8 @@ window.FPS = window.FPS || {};
       wave: curLv,
       level: curLv,
       killsDelta: deltaKills,
-      completedRun: true
+      completedRun: true,
+      notes: winNoteList
     });
     FPSApi.submitScore({
       name: "Player",
@@ -796,6 +819,7 @@ window.FPS = window.FPS || {};
   if (btnStory) {
     btnStory.onclick = function () {
       if (G.state === "loading") return;
+      if (FPS.ui && FPS.ui.renderStoryDossier) FPS.ui.renderStoryDossier();
       document.getElementById("menu").classList.add("hidden");
       document.getElementById("storyScr").classList.remove("hidden");
     };
@@ -806,6 +830,15 @@ window.FPS = window.FPS || {};
       if (G.state === "loading") return;
       document.getElementById("storyScr").classList.add("hidden");
       startCampaign(selectedLevelId);
+    };
+  }
+  var btnStoryBack = document.getElementById("btnStoryBack");
+  if (btnStoryBack) {
+    btnStoryBack.onclick = function () {
+      if (G.state === "loading") return;
+      document.getElementById("storyScr").classList.add("hidden");
+      document.getElementById("menu").classList.remove("hidden");
+      G.state = "menu";
     };
   }
   var btnResume = document.getElementById("btnResume");
@@ -931,7 +964,7 @@ window.FPS = window.FPS || {};
         G.carryingRelics = (G.carryingRelics || 0) + 1;
         G.scrap = (G.scrap || 0) + ((FPS.SCRAP && FPS.SCRAP.relicBonus) || 35);
         if (FPS.audio && FPS.audio.sfxRelicPickup) FPS.audio.sfxRelicPickup();
-        if (FPS.ui && FPS.ui.showToast) FPS.ui.showToast(FPS.t("objRelicPickup"), 1600);
+        if (FPS.ui && FPS.ui.showToast) FPS.ui.showToast(FPS.t(G.carryingRelics >= 2 ? "storyRelic2Beat" : "storyRelic1Beat"), 3200);
         if (FPS.ui && FPS.ui.updateHUD) FPS.ui.updateHUD();
         return true;
       }
@@ -949,6 +982,7 @@ window.FPS = window.FPS || {};
         } else if (FPS.ui && FPS.ui.announce) {
           FPS.ui.announce(FPS.t("objHoldoutActive"), "");
         }
+        if (FPS.ui && FPS.ui.showToast) FPS.ui.showToast(FPS.t("storyFlareBeat"), 3600);
         if (FPS.ui && FPS.ui.updateHUD) FPS.ui.updateHUD();
         return true;
       }
@@ -1556,6 +1590,7 @@ window.FPS = window.FPS || {};
         var gateBroken = !(W.gate && W.gate.alive);
         if (gateBroken && !_gateBrokenAnnounced) {
           _gateBrokenAnnounced = true;
+          if (FPS.ui && FPS.ui.showToast) FPS.ui.showToast(FPS.t("storyGateBeat"), 3400);
         } else if (!gateBroken && G.levelKills >= G.killQuota && !_gateHintShown) {
           _gateHintShown = true;
           if (FPS.ui && FPS.ui.showToast) FPS.ui.showToast(FPS.t("objGateHint"), 2200);
@@ -1572,6 +1607,7 @@ window.FPS = window.FPS || {};
           G.directorT = Math.max(G.directorT, G.panicT);
           if (FPS.audio && FPS.audio.sfxSting) FPS.audio.sfxSting();
           if (FPS.ui && FPS.ui.announce) FPS.ui.announce(FPS.t("objGenDone"), FPS.t("panicHorde"));
+          if (FPS.ui && FPS.ui.showToast) FPS.ui.showToast(FPS.t("storyGenBeat"), 3600);
         }
       } else if (obj && obj.type === "totems") {
         var ts = W.totems || [];
@@ -1583,6 +1619,10 @@ window.FPS = window.FPS || {};
         }
         if (tBroken > _totemsBrokenCount) {
           _totemsBrokenCount = tBroken;
+        }
+        if (ts.length > 0 && tAliveList.length === 0 && !_totemsAllBrokenToast) {
+          _totemsAllBrokenToast = true;
+          if (FPS.ui && FPS.ui.showToast) FPS.ui.showToast(FPS.t("storyTotemBeat"), 3600);
         }
         if (tAliveList.length > 0) {
           _totemAddTimer -= realDt;

@@ -32,7 +32,12 @@ FPS.T = {
     bossTag: "BOSS",
     noBossTag: "THOÁT HIỂM",
     storyBtn: "📖 Cốt truyện",
-    storyTitle: "Đi tìm Linh",
+    storyTitle: "Làng Hạ Đồn — Hồ Sơ Đêm Sương Mù",
+    storyClose: "Về Menu",
+    storyDossierTitle: "Hồ Sơ Đêm Sương Mù — Nhật Ký Của Linh",
+    storyLockedNote: "Chưa giải mã — Hoàn thành Màn",
+    storyNotesLabel: "Hồ sơ đã thu hồi",
+    storyNoteFound: "📜 Đã lưu Nhật ký của Linh",
     cont: "Tiếp tục",
     goal: "Chinh phục 5 màn chiến thuật ở làng Hạ Đồn: ẩn nấp sau thùng thấp, chặn đạn sau tường cao, kích nổ thùng xăng đỏ dọn bầy xác sống, mở khóa và giữ vị trí tại Cổng Thoát Hiểm.",
     warnTxt: "⚠️ Hiệu ứng âm thanh chiến đấu & jumpscare mạnh — điều chỉnh âm lượng vừa phải",
@@ -96,10 +101,10 @@ FPS.T = {
     bossMinoAnn: "CHÚA TỂ CUỐI CÙNG!",
     bossMinoSub: "Hạ Minotaur để mở cổng bến sông!",
     winT: "CHIẾN DỊCH HOÀN TẤT!",
-    winS: "Minotaur gục ngã bên bến sông ma. Cổng thoát hiểm bừng sáng, quét tan màn sương làng Hạ Đồn. Ở đầu cầu gỗ, Linh chạy ùa tới ôm chầm lấy tôi. Đêm dài cuối cùng đã kết thúc.",
+    winS: "Bình minh xé toạc màn sương đặc quánh trên Bến Sông Ma. Giữa tiếng máy thuyền nổ giòn bên mạn gỗ, Linh chạy ùa ra khỏi khoang, ôm chầm lấy tôi — cuộn sổ da của em còn ấm hơi tay. Làng Hạ Đồn rốt cuộc cũng thoát khỏi đêm dài không ngủ.",
     loseT: "BẠN ĐÃ GỤC NGÃ",
-    loseS: "Sương khép lại trên lối thoát. Từ nay, trong bầy xác sống của làng Hạ Đồn… có thêm một kẻ vẫn mãi thì thầm gọi tên Linh.",
-    storyIntro: "Sương mù nuốt trọn làng Hạ Đồn chỉ trong một đêm. Em gái tôi — Linh — mất tích giữa làn sương ấy. Tôi trở về với khẩu súng, lưỡi Thuận Thiên Kiếm và lời hứa phá vòng vây qua 5 khu vực tử địa để đưa em trở về.",
+    loseS: "Sương mù nuốt chửng tiếng súng cuối cùng trên con đường đất Hạ Đồn. Bộ đàm của Linh chỉ còn tiếng nhiễu trắng — và trong bầy xác sống lang thang dưới ánh trăng đỏ… có thêm một bóng người vẫn nắm chặt thanh Thuận Thiên Kiếm.",
+    storyIntro: "23:05 — Màn sương đen kịt đột ngột phủ kín làng Hạ Đồn chỉ trong một đêm, cắt đứt toàn bộ liên lạc. Cuộc gọi cuối cùng từ em gái tôi — Linh, tình nguyện viên y tế tại trạm xá làng — chỉ kịp vang lên tiếng kính vỡ trước khi mất sóng. Giắt khẩu súng lục cũ và thanh gia bảo Thuận Thiên Kiếm sau lưng, tôi vượt qua 5 khu vực phong tỏa từ Đình Làng đến Bến Sông Ma để đưa em trở về trước bình minh.",
     qHigh: "CAO",
     qMed: "TRUNG",
     qLow: "THẤP",
@@ -191,7 +196,13 @@ FPS.T = {
     mInteract: "DÙNG",
     mShove: "ĐẨY",
     kShove: "Đẩy lùi zombie (22 thể lực)",
-    kInteract: "Tương tác (Hòm súng / Bàn rèn / Bẫy / Máy phát)"
+    kInteract: "Tương tác (Hòm súng / Bàn rèn / Bẫy / Máy phát)",
+    storyRelic1Beat: "📜 Cuộn Bùa Trấn: Ấn phong ấn cổ ở Nghĩa Địa đã bị kẻ lạ đập vỡ...",
+    storyRelic2Beat: "📜 Nhật Ký Linh: 3 Trụ Nguyền đang điều khiển Vua Orc — phá trụ trước!",
+    storyGateBeat: "📻 Linh: Anh phá được cổng Đình rồi! Cắt qua Chợ Đêm tới Rừng Thông!",
+    storyGenBeat: "📻 Linh: Điện chợ bật rồi! Cả bầy đang tràn tới — tận dụng bẫy lửa!",
+    storyTotemBeat: "📻 Linh: Cả 3 Trụ Nguyền đã vỡ! Vua Orc mất giáp rồi, em đang chờ ở Bến Sông Ma!",
+    storyFlareBeat: "📻 Linh: Em thấy pháo hiệu rồi! Cầm cự 25 giây trước Minotaur, thuyền đang cập mạn!"
   },
   en: {
     fog: "DEAD FOG",
@@ -221,7 +232,12 @@ FPS.T = {
     bossTag: "BOSS",
     noBossTag: "EXTRACTION",
     storyBtn: "📖 Story",
-    storyTitle: "Finding Linh",
+    storyTitle: "Ha Don Village — The Fog Dossier",
+    storyClose: "Back to Menu",
+    storyDossierTitle: "The Fog Dossier — Linh's Field Notes",
+    storyLockedNote: "Locked — Clear Stage",
+    storyNotesLabel: "Notes Recovered",
+    storyNoteFound: "📜 Saved Linh's Field Note",
     cont: "Continue",
     goal: "Fight through 5 tactical extraction stages in Ha Don village: shoot over waist-high crates, break line-of-sight behind tall walls, detonate crimson barrels, and hold the Extraction Portal to advance.",
     warnTxt: "⚠️ Combat SFX & loud horror cues — keep volume moderate",
@@ -285,10 +301,10 @@ FPS.T = {
     bossMinoAnn: "FINAL BOSS AWAKENED!",
     bossMinoSub: "Slay the Minotaur to unlock the pier portal!",
     winT: "CAMPAIGN COMPLETE!",
-    winS: "The Minotaur fell upon the haunted pier. The extraction beacon flared emerald, tearing away Ha Don’s curse. At the edge of the dock stood Linh — shaking, alive. The long night was finally over.",
+    winS: "Dawn broke across the Haunted River Pier, tearing open Ha Don's suffocating mist. Over the roar of the boat's engine, Linh rushed from the cabin and threw her arms around me — her blood-stained field ledger still warm. After one endless night, Ha Don finally exhaled.",
     loseT: "YOU HAVE FALLEN",
-    loseS: "The fog closed over the extraction lane. Among the walking dead of Ha Don… one more voice whispers Linh’s name forever.",
-    storyIntro: "Fog swallowed Ha Don village in a single night. My little sister — Linh — vanished into it. Armed with firepower and the Thuan Thien Sword, I must fight through 5 tactical extraction zones to bring her home.",
+    loseS: "The mist closed over the final gunshot along Ha Don's mud road. Linh's radio crackled into dead static — and among the silhouettes beneath the crimson moon, one more figure still clutched the Thuan Thien Sword.",
+    storyIntro: "23:05 — Pitch-black fog swallowed Ha Don village in a single night, severing every signal. The final call from my little sister Linh — a clinic volunteer stranded inside the perimeter — ended in shattering glass and static. Armed with a worn service pistol and the heirloom Thuan Thien Sword, I have to carve through 5 sealed killzones before sunrise.",
     qHigh: "HIGH",
     qMed: "MED",
     qLow: "LOW",
@@ -380,7 +396,13 @@ FPS.T = {
     mInteract: "USE",
     mShove: "SHOVE",
     kShove: "Shove zombies back (22 stamina)",
-    kInteract: "Interact (Armory / Anvil / Trap / Generator)"
+    kInteract: "Interact (Armory / Anvil / Trap / Generator)",
+    storyRelic1Beat: "📜 Sealing Scroll: Someone shattered the ancient ward at the Cemetery...",
+    storyRelic2Beat: "📜 Linh's Journal: 3 Cursed Totems bind the Orc Lord — break them first!",
+    storyGateBeat: "📻 Linh: You broke the Shrine gate! Cut through the Night Market toward Pine Woods!",
+    storyGenBeat: "📻 Linh: Market power's up! Horde incoming — use the chokepoint traps!",
+    storyTotemBeat: "📻 Linh: All 3 Totems shattered! Orc Lord's armor is down — meet me at the River Pier!",
+    storyFlareBeat: "📻 Linh: I see your flare! Hold 25s against the Minotaur — bringing the boat in!"
   }
 };
 
@@ -649,4 +671,113 @@ FPS.HAZARDS = {
   totemArmorReduction: 0.65,
   water: { speedMul: 0.78 },
   toxic: { speedMul: 0.82, dps: 5, tick: 0.5 }
+};
+
+FPS.STORY = {
+  chapters: [
+    {
+      id: 1,
+      noteId: "note1",
+      timeVi: "23:10",
+      timeEn: "23:10",
+      titleVi: "Hồi I: Ngõ Cụt Sương Mù",
+      titleEn: "Act I: Foggy Back-Alley",
+      introVi: "Trạm y tế đầu làng trống trơn. Chỉ còn dấu giày của Linh dẫn xuyên qua Đình Làng.",
+      introEn: "The clinic sits empty. Only Linh's footprints lead through the Village Shrine.",
+      clearTitleVi: "Tín hiệu từ Chợ Đêm",
+      clearTitleEn: "Signal from the Night Market",
+      clearVi: "Cánh cổng gỗ Đình Làng đổ sập dưới làn đạn. Giữa đống tro còn vương tấm băng cứu thương của Linh — bộ đàm chợt rè lên giọng em từ hướng Chợ Đêm: 'Anh ơi, điện khu chợ tắt hết rồi, em đang kẹt sau sạp cũ!'",
+      clearEn: "The Shrine gate splinters under gunfire. Beside the embers lies Linh's medical armband — and her radio crackles from the Night Market: 'The market grid is dead, I'm pinned near the old stalls!'",
+      noteTextVi: "23:10 — Trạm xá bị bỏ hoang trong vội vã. Cả làng đóng sập cửa từ bên trong, chỉ còn vết máu kéo lê về phía Đình cổ và một vỏ đạn khắc ký hiệu Hạ Đồn.",
+      noteTextEn: "23:10 — The clinic was abandoned mid-shift. Every door was barred from inside, leaving drag marks toward the Shrine and a shell casing etched with Ha Don's seal."
+    },
+    {
+      id: 2,
+      noteId: "note2",
+      timeVi: "23:38",
+      timeEn: "23:38",
+      titleVi: "Hồi II: Chợ Đêm Ánh Đỏ",
+      titleEn: "Act II: Crimson Night Market",
+      introVi: "Khởi động lại 2 máy phát điện khu chợ để phá bóng tối và thu hút bầy quái khỏi chỗ Linh ẩn nấp.",
+      introEn: "Restart 2 market generators to flood the lanes with light and draw the horde off Linh.",
+      clearTitleVi: "Dấu vết về Rừng Thông",
+      clearTitleEn: "Trail into the Pine Woods",
+      clearVi: "Ánh đèn vàng bừng sáng khắp dãy sạp, kéo cả đàn xác sống dồn về bẫy lửa. Khi bạn thoát qua vòm cổng đông, Linh báo tin vừa chạy lên sườn Rừng Thông — nhưng hai cuộn Di Vật trấn giữ phong ấn đã rơi dọc đường mòn.",
+      clearEn: "Floodlights roar back to life, pulling the swarming dead straight into the traps. Pushing past the east arch, Linh radios she made it into the Pine Woods — but dropped two sacred sealing relics along the trail.",
+      noteTextVi: "23:38 — Dưới gầm sạp chợ là ghi chép của ông từ đình: 'Sương mù không phải thiên tai — nó rỉ ra từ ba Trụ Nguyền dựng quanh Nghĩa Địa từ ba đêm trước.'",
+      noteTextEn: "23:38 — Tucked under a market stall was the caretaker's log: 'This fog isn't weather — it's leaking from three Cursed Totems raised in the Cemetery three nights ago.'"
+    },
+    {
+      id: 3,
+      noteId: "note3",
+      timeVi: "00:08",
+      timeEn: "00:08",
+      titleVi: "Hồi III: Rừng Thông Bạt Gió",
+      titleEn: "Act III: Pine Woods Ambush",
+      introVi: "Thu hồi 2 Di Vật của Linh trên đài canh cao và tìm đường thoát lên miếu đá.",
+      introEn: "Recover 2 of Linh's Relics from the lookout decks and extract to the stone shrine.",
+      clearTitleVi: "Lời nguyền Nghĩa Địa thức giấc",
+      clearTitleEn: "The Cemetery Ward Breaks",
+      clearVi: "Hai Di Vật nặng trĩu trên vai hé lộ sự thật kinh hoàng: kẻ nào đó đã cố tình bẻ gãy ấn trấn ở Nghĩa Địa để đánh thức Vua Orc Hộ Mộ. Đằng sau tiếng thông reo, mặt đất phía bắc rung chuyển dưới bước chân khổng lồ.",
+      clearEn: "Both recovered Relics reveal the grim truth: someone deliberately shattered the Cemetery seal to awaken the Orc Grave Lord. Beyond the pines, the northern earth shudders beneath massive footsteps.",
+      noteTextVi: "00:08 — Trang nhật ký rách trong túi Di Vật của Linh: 'Nếu 3 Trụ Nguyền còn cháy lửa tà, lớp giáp xương của Vua Orc không thể bị xuyên thủng. Phải đập trụ trước khi giao chiến!'",
+      noteTextEn: "00:08 — A torn page inside Linh's relic pouch: 'While all 3 Cursed Totems burn, the Orc Lord's bone-plate shrugs off bullets. Shatter every totem first!'"
+    },
+    {
+      id: 4,
+      noteId: "note4",
+      timeVi: "00:42",
+      timeEn: "00:42",
+      titleVi: "Hồi IV: Nghĩa Địa Trụ Nguyền",
+      titleEn: "Act IV: Cursed Cemetery",
+      introVi: "Đập nát 3 Trụ Nguyền để tước giáp Vua Orc Hộ Mộ giữa màn sương độc.",
+      introEn: "Shatter 3 Cursed Totems to strip the Orc Grave Lord's armor amid toxic fog.",
+      clearTitleVi: "Đường ra Bến Sông Ma",
+      clearTitleEn: "Path to the Haunted Pier",
+      clearVi: "Vua Orc Hộ Mộ gục xuống bên cổng tam quan vỡ nát. Trên tần số khẩn cấp, giọng Linh vang lên đầy hy vọng: 'Em cướp được một chiếc thuyền máy neo ở Bến Sông Ma rồi! Bắn pháo hiệu trên cầu tàu — em sẽ quay thuyền lại đón anh!'",
+      clearEn: "The Orc Grave Lord crashes beside the ruined Tam Quan gate. Over emergency comms, Linh's voice surges with hope: 'I got a motorboat running at the Haunted River Pier! Fire the signal flare on the dock — I'm coming back for you!'",
+      noteTextVi: "00:42 — Dưới chân Trụ Nguyền trung tâm khắc cổ tự trùng khớp với sống lưỡi Thuận Thiên Kiếm: tổ tiên dòng họ đã dùng thanh kiếm này chém đứt lời nguyền bến sông năm xưa.",
+      noteTextEn: "00:42 — Runes carved beneath the central Totem match the blade of the Thuan Thien Sword: generations ago, your bloodline used this very sword to sever the river curse."
+    },
+    {
+      id: 5,
+      noteId: "note5",
+      timeVi: "01:15",
+      timeEn: "01:15",
+      titleVi: "Hồi V: Bến Sông Ma",
+      titleEn: "Act V: Haunted River Pier",
+      introVi: "Bắn pháo hiệu gọi thuyền của Linh, thủ cầu tàu 25s và hạ quái thú Minotaur.",
+      introEn: "Fire the signal flare for Linh's boat, hold the pier for 25s, and slay the Minotaur.",
+      clearTitleVi: "Bình minh trên sông Hạ Đồn",
+      clearTitleEn: "Dawn on Ha Don River",
+      clearVi: "Minotaur đổ gục xuống cầu tàu đẫm nước, kéo theo luồng sương đen tan biến. Chiếc thuyền máy rẽ sóng cập bến — Linh lao ra khỏi khoang, nắm chặt tay bạn trước khi mặt trời ló rạng.",
+      clearEn: "The Minotaur collapses across the soaked pier, and the black fog dissolves with its final breath. Linh's boat cuts through the wake to the dock — seizing your hand as first light breaks.",
+      noteTextVi: "01:15 — Sổ tay hoàn chỉnh: 'Thủy quái Minotaur chính là vật chủ cuối giữ màn sương ở Hạ Đồn. Khi nó gục ngã bên cầu tàu, con sông trở lại hiền hòa. Hai anh em đã sống sót.'",
+      noteTextEn: "01:15 — Final Entry: 'The Minotaur was the last anchor binding the fog over Ha Don. With it felled upon the pier, the river falls still. Both of us made it out alive.'"
+    }
+  ],
+  loseByStage: {
+    1: {
+      vi: "Bạn ngã xuống ngay trước Đình Làng Hạ Đồn. Đèn pin lăn vào vũng bùn, chỉ còn tiếng Linh gọi tên anh vang vọng bất lực qua bộ đàm.",
+      en: "You fell before the Village Shrine of Ha Don. Your flashlight rolled into the mud as Linh's voice echoed helplessly over the radio."
+    },
+    2: {
+      vi: "Ánh đèn Chợ Đêm vụt tắt khi nhịp thở bạn dừng lại. Đợt quái tràn nuốt chửng dãy sạp — và thanh Thuận Thiên Kiếm nằm lại dưới đống tro.",
+      en: "The Night Market lights died with your final breath. The panic horde swallowed the stalls, leaving the Thuan Thien Sword buried in ash."
+    },
+    3: {
+      vi: "Sương lạnh Rừng Thông phủ kín hai Di Vật rơi trên đất. Màn đêm nuốt mất lối lên miếu đá trước khi kịp đưa chúng tới Nghĩa Địa.",
+      en: "Cold pine mist settled over both fallen Relics. Darkness reclaimed the trail before you ever reached the stone shrine."
+    },
+    4: {
+      vi: "Vua Orc Hộ Mộ vẫn đứng sừng sững giữa sương độc Nghĩa Địa. Bên kia sông, chiếc thuyền máy của Linh chờ đợi trong vô vọng suốt đến hừng đông.",
+      en: "The Orc Grave Lord still looms over the toxic Cemetery fog. Across the river, Linh's boat circled in vain until dawn."
+    },
+    5: {
+      vi: "Chỉ còn cách mạn thuyền cứu hộ vài bước chân trên Bến Sông Ma, sức lực đã cạn. Tiếng gầm của Minotaur nhấn chìm tiếng máy thuyền giữa sương mù.",
+      en: "Just steps short of the rescue boat on the Haunted Pier, your strength gave out. The Minotaur's roar drowned the engine into the mist."
+    }
+  },
+  winTrueVi: "Bình minh rực sáng trên Bến Sông Ma khi bạn cầm đủ trọn bộ 5 trang Hồ Sơ Đêm Sương Mù cùng Linh bước lên thuyền. Mọi bí mật về Trụ Nguyền, phong ấn tổ tiên và thanh Thuận Thiên Kiếm đã khép lại — làng Hạ Đồn rốt cuộc cũng được ngủ yên.",
+  winTrueEn: "Sunrise blazed over the Haunted River Pier as you boarded with Linh and all 5 pages of The Fog Dossier intact. Every secret of the Cursed Totems, your bloodline's ward, and the Thuan Thien Sword was laid to rest — Ha Don finally sleeps in peace."
 };

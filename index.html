@@ -146,15 +146,26 @@
 <!-- LEVEL CLEAR / PERK DRAFT -->
 <div class="overlay hidden" id="levelClearScr">
   <h1 class="title" id="lvClearTitle" data-i="levelClear">HOÀN THÀNH MÀN!</h1>
-  <p class="tagline" id="lvClearSub" style="margin:6px 0 12px" data-i="levelClearSub">Chọn 1 nâng cấp chiến thuật trước khi tiến sang màn tiếp theo</p>
+  <p class="tagline" id="lvClearSub" style="margin:6px 0 8px" data-i="levelClearSub">Chọn 1 nâng cấp chiến thuật trước khi tiến sang màn tiếp theo</p>
+  <div id="lvClearStory" class="storyClearCard hidden"><div class="scHead" id="lvClearStoryHead"></div><p id="lvClearStoryBody"></p></div>
   <div id="perkCards"></div>
 </div>
 
 <!-- STORY -->
 <div class="overlay hidden" id="storyScr">
-  <h1 class="title" style="font-size:clamp(22px,4.5vw,32px);margin-bottom:8px" data-i="storyTitle">Đi tìm Linh</h1>
-  <div class="panel storyPanel"><img src="assets/story_intro.jpg" alt="Đi tìm Linh"/><p data-i="storyIntro"></p></div>
-  <button class="btn" id="btnStoryGo" style="margin-top:10px" data-i="cont">Tiếp tục</button>
+  <h1 class="title" style="font-size:clamp(20px,4.2vw,30px);margin-bottom:8px" data-i="storyTitle">Làng Hạ Đồn — Hồ Sơ Đêm Sương Mù</h1>
+  <div class="panel storyPanel">
+    <img src="assets/story_intro.jpg" alt="Làng Hạ Đồn"/>
+    <p data-i="storyIntro"></p>
+    <div id="storyDossier">
+      <div class="dossierHead"><span data-i="storyDossierTitle">Hồ Sơ Đêm Sương Mù — Nhật Ký Của Linh</span><b id="storyNoteCount">0 / 5</b></div>
+      <div id="storyChapters"></div>
+    </div>
+  </div>
+  <div class="btnrow" style="margin-top:10px">
+    <button class="btn" id="btnStoryGo" data-i="cont">Tiếp tục</button>
+    <button class="btn ghost" id="btnStoryBack" data-i="storyClose">Về Menu</button>
+  </div>
 </div>
 
 <!-- PAUSE -->
@@ -171,7 +182,8 @@
 <!-- END -->
 <div class="overlay hidden" id="endScr">
   <h1 class="title" id="endTitle">GAME OVER</h1>
-  <p class="tagline" id="endSub" style="margin:6px 0 10px"></p>
+  <p class="tagline" id="endSub" style="margin:6px 0 8px"></p>
+  <div id="endLore" class="endLoreBadge hidden"></div>
   <div class="panel" style="max-width:380px"><div class="statgrid">
     <span data-i="sScore">Điểm</span><b id="eScore">0</b>
     <span data-i="sKills">Zombie đã hạ</span><b id="eKills">0</b>
