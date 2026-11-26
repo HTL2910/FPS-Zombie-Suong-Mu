@@ -69,7 +69,7 @@ async function handleApi(req, res, apiPath) {
     return;
   }
   if (apiPath === "/api/health" && req.method === "GET") {
-    return sendJson(res, 200, { ok: true, game: "fps-zombie-suong-mu", version: "v8.0" });
+    return sendJson(res, 200, { ok: true, game: "fps-zombie-suong-mu", version: "v9.0" });
   }
   if (apiPath === "/api/config" && req.method === "GET") {
     return sendJson(res, 200, readJson("config.json", {}));

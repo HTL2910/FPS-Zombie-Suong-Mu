@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"/>
 <meta name="color-scheme" content="dark"/>
 <link rel="icon" href="data:,"/>
-<title>FPS Zombie Sương Mù v8.0</title>
+<title>FPS Zombie Sương Mù v9.0</title>
 <link rel="stylesheet" href="frontend/css/style.css"/>
 </head>
 <body>
@@ -16,11 +16,13 @@
 <div id="hud" class="hidden">
   <div id="hudTopLeft">
     <div id="hudTL" class="hudChip"><span data-i="level">Màn</span> <b id="hLevel">1</b>/5 · <span data-i="score">Điểm</span> <b id="hScore">0</b></div>
-    <div id="hudMeta"><span id="qBadge">Q: AUTO · TRUNG</span><span id="verHud">BUILD v8.0</span></div>
+    <div id="hudMeta"><span id="qBadge">Q: AUTO · TRUNG</span><span id="verHud">BUILD v9.0</span></div>
+    <div id="scrapRow" class="hudChip">⚙ <span data-i="scrapLabel">Scrap</span>: <b id="scrapVal">0</b> <span id="comboBadge" class="hidden"></span></div>
     <div id="missionBox" class="hudChip">
       <div id="missionTitle">Màn 1: Ngõ Cụt Sương Mù</div>
       <div id="missionQuota">💀 Tiêu diệt: 0 / 14</div>
       <div id="missionBarBg"><div id="missionBar"></div></div>
+      <div id="objDetail"></div>
     </div>
   </div>
 
@@ -46,6 +48,14 @@
   <div id="dmgDir"><div id="dmgDirRot"><div id="dmgDirArc"></div></div></div>
   <div id="noteToast"></div>
   <div id="lockHint" class="hidden">🖱 Click vào màn hình để khóa chuột — di chuột để ngắm · Esc để thả chuột</div>
+  <div id="interactPrompt" class="hudChip hidden" data-i="pressE">[E] Tương tác</div>
+  <div id="shoveHud" class="hudChip" data-i="shoveReady">👊 V: Đẩy lùi</div>
+  <div id="weaponSlots">
+    <div class="wslot active" data-w="pistol"><b>1</b><span>Pistol</span><small class="wtier">Mk.I</small></div>
+    <div class="wslot locked" data-w="shotgun"><b>2</b><span>Shotgun</span><small class="wtier">🔒</small></div>
+    <div class="wslot locked" data-w="rifle"><b>3</b><span>Rifle</span><small class="wtier">🔒</small></div>
+    <div class="wslot" data-w="thuanthien"><b>4</b><span>Thuận Thiên</span><small class="wtier">Mk.I</small></div>
+  </div>
 
   <div id="hudBL"><div id="hpWrap"><div id="hpBar"></div></div><div id="stamWrap"><div id="stamBar"></div></div><div id="hpText">HP 100 / 100</div></div>
   <div id="hudBR"><div id="flareChip" class="hudChip">🔥 G: Sẵn Sàng</div><div id="wname">Pistol</div><div id="ammo">12 <small>/ ∞</small></div><div id="reloadHint"></div></div>
@@ -60,32 +70,34 @@
   <button class="mbtn" id="btnWeapon" data-i="mWeapon">SÚNG</button>
   <button class="mbtn" id="btnFlash" data-i="mFlash">ĐÈN</button>
   <button class="mbtn" id="btnFlare" data-i="mFlare">LỬA</button>
+  <button class="mbtn" id="btnShove" data-i="mShove">ĐẨY</button>
+  <button class="mbtn hidden" id="btnInteract" data-i="mInteract">DÙNG</button>
   <button class="mbtn" id="btnPauseM">II</button>
 </div>
 
 <!-- LOADING -->
 <div class="overlay" id="loadScr">
   <div class="loadCard">
-    <div class="loadBadge">v8.0 · PRELOADING &amp; GPU WARMUP</div>
+    <div class="loadBadge">v9.0 · PRELOADING &amp; GPU WARMUP</div>
     <h1 class="title">ZOMBIE <span data-i="fog">SƯƠNG MÙ</span></h1>
-    <p id="loadStage">Đang khởi tạo bộ giải mã 3D...</p>
+    <p id="loadStage" data-i="loadStageInit">Đang khởi tạo bộ giải mã 3D...</p>
     <div class="loadBarBg"><div id="loadBarFill"></div></div>
     <div class="loadMeta"><span id="loadDetail">0 / 33 tài nguyên</span><b id="loadPct">0%</b></div>
-    <p id="loadTip">💡 Mẹo: Tường cao chặn đạn &amp; tầm nhìn — thùng gỗ thấp che thân nhưng bạn vẫn bắn qua được.</p>
+    <p id="loadTip" data-i="loadTip1">💡 Mẹo: Tường cao chặn đạn &amp; tầm nhìn — thùng gỗ thấp che thân nhưng bạn vẫn bắn qua được.</p>
   </div>
 </div>
 
 <!-- STAGE TRANSITION LOADING -->
 <div id="stageLoadScr" class="hidden">
   <div class="stageSpinner"></div>
-  <div id="stageLoadTxt">Đang chuẩn bị chiến trường...</div>
+  <div id="stageLoadTxt" data-i="stageLoading">Đang chuẩn bị chiến trường...</div>
 </div>
 
 <!-- MENU -->
 <div class="overlay hidden" id="menu">
  <div class="menuCard">
   <div class="menuTop">
-    <div id="verBadge">v8.0 · TACTICAL EXTRACTION FPS · 5 LEVELS</div>
+    <div id="verBadge">v9.0 · TACTICAL EXTRACTION FPS · 5 LEVELS</div>
     <div class="langrow"><button id="langVi" class="on">VI</button><button id="langEn">EN</button></div>
   </div>
   <h1 class="title">ZOMBIE <span data-i="fog">SƯƠNG MÙ</span></h1>
@@ -111,6 +123,8 @@
       <div class="krow"><b>CLICK</b><span data-i="kShoot">Bắn (giữ Rifle)</span></div>
       <div class="krow"><b>R</b><span data-i="kReload">Nạp đạn</span></div>
       <div class="krow"><b>1·2·3·4</b><span data-i="kWeapon">Đổi vũ khí</span></div>
+      <div class="krow"><b>V / RMB</b><span data-i="kShove">Đẩy lùi zombie (22 thể lực)</span></div>
+      <div class="krow"><b>E</b><span data-i="kInteract">Tương tác (Hòm súng / Bàn rèn / Bẫy / Máy phát)</span></div>
       <div class="krow"><b>F</b><span data-i="kFlash">Đèn pin</span></div>
       <div class="krow"><b>G</b><span data-i="kFlare">Bom Lửa Thánh (12s)</span></div>
       <div class="krow"><b>P/ESC</b><span data-i="kPause">Tạm dừng</span></div>
@@ -167,6 +181,23 @@
   <div class="btnrow" style="margin-top:12px">
     <button class="btn" id="btnAgain" data-i="again">Chơi lại</button>
     <button class="btn ghost" id="btnMenu2" data-i="quit">Về menu chính</button>
+  </div>
+</div>
+
+<!-- ARMORY / ANVIL -->
+<div class="overlay hidden" id="armoryScr">
+  <div class="panel armoryCard">
+    <div class="armoryHead">
+      <div class="armoryHeadTxt">
+        <h1 class="title" id="armoryTitle" data-i="armoryTitle">HÒM VŨ KHÍ</h1>
+        <p class="tagline" id="armorySub" data-i="armorySub">Dùng Scrap mở khóa vũ khí chiến thuật</p>
+      </div>
+      <div class="hudChip armoryScrapChip">⚙ <span data-i="scrapLabel">Scrap</span>: <b id="armoryScrap">0</b></div>
+    </div>
+    <div id="armoryList"></div>
+    <div class="btnrow armoryFoot">
+      <button type="button" class="btn ghost" id="btnArmoryClose" data-i="armoryClose">Đóng (Esc / E)</button>
+    </div>
   </div>
 </div>
 

@@ -1,6 +1,6 @@
 {
-  "version": "v8.0",
-  "title": "FPS Zombie Sương Mù v8.0",
+  "version": "v9.0",
+  "title": "FPS Zombie Sương Mù v9.0",
   "weapons": ["pistol", "shotgun", "rifle", "thuanthien"],
   "levels": 5,
   "bossLevels": [4, 5],

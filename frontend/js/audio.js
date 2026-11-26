@@ -7,13 +7,58 @@ FPS.audio = (function () {
   var ambientNodes = [];
   var _vol = 0.7;
   var _noiseCache = {};
-  var _groanCount = 0;
-  var _groanLast = 0;
+  var _cueState = {};
+  var _activeVoices = [];
+  var _MAX_VOICES = 24;
+
+  function _nowMs() {
+    return (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  }
+
+  function _canPlaySfx() {
+    return !!(AC && masterGain && AC.state === "running" && _vol > 0.0001);
+  }
+
+  function _finite(v, fallback) {
+    var n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function _pruneActive(arr, now) {
+    var w = 0;
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i] > now) arr[w++] = arr[i];
+    }
+    arr.length = w;
+  }
+
+  function _allowCue(key, minMs, maxConc, holdMs) {
+    if (!_canPlaySfx()) return false;
+    var now = _nowMs();
+    _pruneActive(_activeVoices, now);
+    if (_activeVoices.length >= _MAX_VOICES) return false;
+
+    var st = _cueState[key];
+    if (!st) st = _cueState[key] = { last: -Infinity, active: [] };
+    _pruneActive(st.active, now);
+
+    if (minMs && (now - st.last) < minMs) return false;
+    if (maxConc && st.active.length >= maxConc) return false;
+
+    st.last = now;
+    var durMs = Math.max(40, _finite(holdMs, 200) || 200);
+    st.active.push(now + durMs);
+    _activeVoices.push(now + durMs);
+    return true;
+  }
 
   function init() {
     if (AC) {
       if (AC.state === "suspended" && typeof AC.resume === "function") {
-        try { AC.resume(); } catch (e) {}
+        try {
+          var p = AC.resume();
+          if (p && typeof p.catch === "function") p.catch(function () {});
+        } catch (e) {}
       }
       return;
     }
@@ -26,18 +71,26 @@ FPS.audio = (function () {
   }
 
   function setVolume(v) {
-    var n = Number(v);
+    var n = (v === null || v === undefined || (typeof v === "string" && v.trim() === "")) ? NaN : Number(v);
     if (!Number.isFinite(n)) n = 0.7;
     if (n > 1) n = n / 100;
     _vol = Math.max(0, Math.min(1, n));
-    if (masterGain) masterGain.gain.value = _vol;
+    if (masterGain) {
+      masterGain.gain.value = _vol;
+      if (AC && masterGain.gain.setValueAtTime) {
+        try { masterGain.gain.setValueAtTime(_vol, AC.currentTime); } catch (e) {}
+      }
+    }
     return _vol;
   }
 
   function noiseBuf(dur) {
-    var key = Math.round(dur * 20);
+    var dn = Number(dur);
+    var dSec = (Number.isFinite(dn) && dn > 0) ? Math.max(0.05, Math.min(10, dn)) : 0.1;
+    var key = Math.max(1, Math.ceil(dSec * 20));
     if (_noiseCache[key]) return _noiseCache[key];
-    var len = Math.max(1, Math.ceil(AC.sampleRate * dur));
+    var bufDur = key / 20;
+    var len = Math.max(1, Math.ceil(AC.sampleRate * bufDur));
     var b = AC.createBuffer(1, len, AC.sampleRate);
     var d = b.getChannelData(0);
     for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -45,38 +98,136 @@ FPS.audio = (function () {
     return b;
   }
 
+  function _connectOut(node, pan) {
+    if (typeof pan === "number" && Number.isFinite(pan) && pan !== 0 && AC.createStereoPanner) {
+      var p = AC.createStereoPanner();
+      p.pan.value = Math.max(-1, Math.min(1, pan));
+      node.connect(p);
+      p.connect(masterGain);
+    } else {
+      node.connect(masterGain);
+    }
+  }
+
+  function _playToneEx(opts) {
+    if (!_canPlaySfx() || !opts) return;
+    try {
+      var dur = Math.max(0.015, _finite(opts.dur, 0.1));
+      var delay = Math.max(0, _finite(opts.delay, 0));
+      var t0 = AC.currentTime + delay;
+      var tEnd = t0 + dur;
+      var o = AC.createOscillator();
+      o.type = opts.type || "sine";
+      var freq = Math.max(16, _finite(opts.freq, 220));
+      o.frequency.setValueAtTime(freq, t0);
+      var slideTo = (opts.slideTo !== undefined && opts.slideTo !== null) ? _finite(opts.slideTo, 0) : 0;
+      if (slideTo > 0) {
+        o.frequency.exponentialRampToValueAtTime(Math.max(16, slideTo), tEnd);
+      }
+      var g = AC.createGain();
+      var v = Math.max(0.002, _finite(opts.vol, 0.2));
+      var attack = _finite(opts.attack, 0);
+      if (attack > 0) {
+        var atk = Math.min(dur * 0.6, attack);
+        g.gain.setValueAtTime(0.001, t0);
+        g.gain.linearRampToValueAtTime(v, t0 + atk);
+        g.gain.exponentialRampToValueAtTime(0.001, tEnd);
+      } else {
+        g.gain.setValueAtTime(v, t0);
+        g.gain.exponentialRampToValueAtTime(0.001, tEnd);
+      }
+      o.connect(g);
+      _connectOut(g, opts.pan);
+      o.start(t0);
+      o.stop(tEnd + 0.01);
+    } catch (e) {}
+  }
+
+  function _playNoiseEx(opts) {
+    if (!_canPlaySfx() || !opts) return;
+    try {
+      var dur = Math.max(0.02, _finite(opts.dur, 0.1));
+      var delay = Math.max(0, _finite(opts.delay, 0));
+      var t0 = AC.currentTime + delay;
+      var tEnd = t0 + dur;
+      var s = AC.createBufferSource();
+      s.buffer = noiseBuf(dur);
+      var f = AC.createBiquadFilter();
+      f.type = opts.type || "lowpass";
+      var freq = Math.max(20, _finite(opts.freq, 1000));
+      f.frequency.setValueAtTime(freq, t0);
+      var slideFreq = (opts.slideFreq !== undefined && opts.slideFreq !== null) ? _finite(opts.slideFreq, 0) : 0;
+      if (slideFreq > 0) {
+        f.frequency.exponentialRampToValueAtTime(Math.max(20, slideFreq), tEnd);
+      }
+      if (typeof opts.q === "number" && Number.isFinite(opts.q)) {
+        f.Q.value = Math.max(0.1, opts.q);
+      }
+      var g = AC.createGain();
+      var v = Math.max(0.002, _finite(opts.vol, 0.2));
+      var attack = _finite(opts.attack, 0);
+      if (attack > 0) {
+        var atk = Math.min(dur * 0.6, attack);
+        g.gain.setValueAtTime(0.001, t0);
+        g.gain.linearRampToValueAtTime(v, t0 + atk);
+        g.gain.exponentialRampToValueAtTime(0.001, tEnd);
+      } else {
+        g.gain.setValueAtTime(v, t0);
+        g.gain.exponentialRampToValueAtTime(0.001, tEnd);
+      }
+      s.connect(f);
+      f.connect(g);
+      _connectOut(g, opts.pan);
+      s.start(t0);
+      s.stop(tEnd + 0.01);
+    } catch (e) {}
+  }
+
   function playNoise(dur, freq, vol, type, slideFreq) {
-    if (!AC || !masterGain) return;
-    var s = AC.createBufferSource();
-    s.buffer = noiseBuf(dur);
-    var f = AC.createBiquadFilter();
-    f.type = type || "lowpass";
-    f.frequency.setValueAtTime(freq, AC.currentTime);
-    if (slideFreq) f.frequency.exponentialRampToValueAtTime(Math.max(20, slideFreq), AC.currentTime + dur);
-    var g = AC.createGain();
-    g.gain.setValueAtTime(Math.max(0.001, vol), AC.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + dur);
-    s.connect(f);
-    f.connect(g);
-    g.connect(masterGain);
-    s.start();
-    s.stop(AC.currentTime + dur);
+    if (!_canPlaySfx()) return;
+    try {
+      var d = Math.max(0.02, _finite(dur, 0.1));
+      var fq = Math.max(20, _finite(freq, 1000));
+      var v = Math.max(0.001, _finite(vol, 0.2));
+      var sf = (slideFreq !== undefined && slideFreq !== null) ? _finite(slideFreq, 0) : 0;
+      var s = AC.createBufferSource();
+      s.buffer = noiseBuf(d);
+      var f = AC.createBiquadFilter();
+      f.type = type || "lowpass";
+      f.frequency.setValueAtTime(fq, AC.currentTime);
+      if (sf > 0) f.frequency.exponentialRampToValueAtTime(Math.max(20, sf), AC.currentTime + d);
+      var g = AC.createGain();
+      g.gain.setValueAtTime(v, AC.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + d);
+      s.connect(f);
+      f.connect(g);
+      g.connect(masterGain);
+      s.start();
+      s.stop(AC.currentTime + d);
+    } catch (e) {}
   }
 
   function playTone(freq, dur, vol, type, slideTo, delay) {
-    if (!AC || !masterGain) return;
-    var t0 = AC.currentTime + (delay || 0);
-    var o = AC.createOscillator();
-    o.type = type || "sine";
-    o.frequency.setValueAtTime(Math.max(16, freq), t0);
-    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(16, slideTo), t0 + dur);
-    var g = AC.createGain();
-    g.gain.setValueAtTime(Math.max(0.001, vol), t0);
-    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-    o.connect(g);
-    g.connect(masterGain);
-    o.start(t0);
-    o.stop(t0 + dur);
+    if (!_canPlaySfx()) return;
+    try {
+      var fq = Math.max(16, _finite(freq, 220));
+      var d = Math.max(0.015, _finite(dur, 0.1));
+      var v = Math.max(0.001, _finite(vol, 0.2));
+      var del = Math.max(0, _finite(delay, 0));
+      var st = (slideTo !== undefined && slideTo !== null) ? _finite(slideTo, 0) : 0;
+      var t0 = AC.currentTime + del;
+      var o = AC.createOscillator();
+      o.type = type || "sine";
+      o.frequency.setValueAtTime(fq, t0);
+      if (st > 0) o.frequency.exponentialRampToValueAtTime(Math.max(16, st), t0 + d);
+      var g = AC.createGain();
+      g.gain.setValueAtTime(v, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + d);
+      o.connect(g);
+      g.connect(masterGain);
+      o.start(t0);
+      o.stop(t0 + d);
+    } catch (e) {}
   }
 
   function startAmbient() {
@@ -192,12 +343,7 @@ FPS.audio = (function () {
   }
 
   function sfxGroan() {
-    if (!AC) return;
-    var n = performance.now();
-    if (_groanCount >= 2 || n - _groanLast < 120) return;
-    _groanLast = n;
-    _groanCount++;
-    setTimeout(function () { _groanCount = Math.max(0, _groanCount - 1); }, 800);
+    if (!_allowCue("groan", 120, 2, 800)) return;
     var f = 55 + Math.random() * 50;
     playTone(f, 0.7 + Math.random() * 0.5, 0.13, "sawtooth", f * 0.6);
   }
@@ -225,7 +371,7 @@ FPS.audio = (function () {
   }
 
   function sfxWhisper(pan) {
-    if (!AC || !masterGain) return;
+    if (!_canPlaySfx()) return;
     try {
       var s = AC.createBufferSource();
       s.buffer = noiseBuf(0.9);
@@ -240,7 +386,7 @@ FPS.audio = (function () {
       g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.9);
       if (AC.createStereoPanner) {
         var p = AC.createStereoPanner();
-        p.pan.value = pan || 0;
+        p.pan.value = Math.max(-1, Math.min(1, _finite(pan, 0)));
         s.connect(f); f.connect(g); g.connect(p); p.connect(masterGain);
       } else {
         s.connect(f); f.connect(g); g.connect(masterGain);
@@ -252,8 +398,9 @@ FPS.audio = (function () {
 
   function sfxHeartbeat(rate) {
     if (!AC) return;
+    var rNum = _finite(rate, 600);
     playTone(52, 0.14, 0.5, "sine", 38);
-    playTone(48, 0.11, 0.35, "sine", 36, Math.max(0.14, (rate || 600) * 0.00028));
+    playTone(48, 0.11, 0.35, "sine", 36, Math.max(0.14, (rNum || 600) * 0.00028));
   }
 
   function sfxCrow() {
@@ -269,6 +416,158 @@ FPS.audio = (function () {
     playNoise(0.22, 320, 0.58, "lowpass");
     playTone(70, 0.3, 0.48, "sine", 35);
     playTone(180, 0.08, 0.2, "square", 90, 0.04);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Full v9.0 Procedural Cues (0 external files, rate-limited & voice-capped)
+  // ---------------------------------------------------------------------------
+  function sfxShove() {
+    if (!_allowCue("shove", 180, 2, 180)) return;
+    _playNoiseEx({ dur: 0.14, freq: 950, slideFreq: 320, type: "bandpass", q: 1.4, vol: 0.42, delay: 0 });
+    _playToneEx({ freq: 145, slideTo: 48, dur: 0.13, vol: 0.44, type: "triangle", delay: 0 });
+    _playToneEx({ freq: 340, slideTo: 120, dur: 0.045, vol: 0.16, type: "square", delay: 0.015 });
+  }
+
+  function sfxSpitterSpit(pan) {
+    if (!_allowCue("spitterSpit", 280, 2, 360)) return;
+    _playNoiseEx({ dur: 0.26, freq: 2600, slideFreq: 750, type: "bandpass", q: 3.2, vol: 0.36, delay: 0, pan: pan });
+    _playNoiseEx({ dur: 0.32, freq: 3400, slideFreq: 1800, type: "highpass", vol: 0.20, delay: 0.04, pan: pan });
+    _playToneEx({ freq: 460, slideTo: 135, dur: 0.18, vol: 0.22, type: "sawtooth", delay: 0, pan: pan });
+  }
+
+  function sfxBloaterWarn() {
+    if (!_allowCue("bloaterWarn", 500, 2, 500)) return;
+    _playToneEx({ freq: 68, slideTo: 96, dur: 0.48, vol: 0.30, type: "sawtooth", attack: 0.06, delay: 0 });
+    _playToneEx({ freq: 150, slideTo: 230, dur: 0.08, vol: 0.20, type: "sine", delay: 0.05 });
+    _playToneEx({ freq: 185, slideTo: 270, dur: 0.08, vol: 0.20, type: "sine", delay: 0.17 });
+    _playToneEx({ freq: 215, slideTo: 310, dur: 0.09, vol: 0.20, type: "sine", delay: 0.29 });
+    _playNoiseEx({ dur: 0.42, freq: 650, slideFreq: 1250, type: "bandpass", q: 2.8, vol: 0.18, attack: 0.05, delay: 0 });
+  }
+
+  function sfxBloaterBoom() {
+    if (!_allowCue("bloaterBoom", 150, 2, 750)) return;
+    _playToneEx({ freq: 98, slideTo: 22, dur: 0.72, vol: 0.65, type: "sine", delay: 0 });
+    _playToneEx({ freq: 135, slideTo: 28, dur: 0.45, vol: 0.42, type: "sawtooth", delay: 0 });
+    _playNoiseEx({ dur: 0.78, freq: 1200, slideFreq: 110, type: "lowpass", vol: 0.72, delay: 0 });
+    _playNoiseEx({ dur: 0.42, freq: 2800, slideFreq: 620, type: "bandpass", q: 2.2, vol: 0.46, delay: 0.03 });
+    _playToneEx({ freq: 2900, slideTo: 2400, dur: 0.45, vol: 0.07, type: "sine", attack: 0.03, delay: 0.05 });
+  }
+
+  function sfxStalkerHiss(pan) {
+    if (!_allowCue("stalkerHiss", 600, 2, 650)) return;
+    _playNoiseEx({ dur: 0.65, freq: 1600, slideFreq: 4200, type: "bandpass", q: 4.5, vol: 0.28, attack: 0.12, delay: 0, pan: pan });
+    _playToneEx({ freq: 680, slideTo: 1320, dur: 0.52, vol: 0.16, type: "sawtooth", attack: 0.05, delay: 0, pan: pan });
+    _playToneEx({ freq: 725, slideTo: 1410, dur: 0.52, vol: 0.14, type: "triangle", attack: 0.05, delay: 0, pan: pan });
+    _playNoiseEx({ dur: 0.22, freq: 3600, type: "highpass", vol: 0.16, delay: 0.08, pan: pan });
+  }
+
+  function sfxTrapActivate(kind) {
+    if (!_allowCue("trapActivate", 200, 2, 550)) return;
+    _playToneEx({ freq: 260, slideTo: 140, dur: 0.06, vol: 0.24, type: "square", delay: 0 });
+    if (kind === "fire") {
+      _playNoiseEx({ dur: 0.48, freq: 520, slideFreq: 2100, type: "bandpass", q: 1.2, vol: 0.46, delay: 0.02 });
+      _playNoiseEx({ dur: 0.55, freq: 900, slideFreq: 280, type: "lowpass", vol: 0.42, delay: 0.05 });
+      _playToneEx({ freq: 130, slideTo: 45, dur: 0.22, vol: 0.34, type: "sine", delay: 0.03 });
+    } else {
+      _playNoiseEx({ dur: 0.22, freq: 3600, slideFreq: 1100, type: "bandpass", q: 3.0, vol: 0.42, delay: 0.02 });
+      _playToneEx({ freq: 120, slideTo: 118, dur: 0.42, vol: 0.26, type: "sawtooth", delay: 0.03 });
+      _playToneEx({ freq: 240, slideTo: 480, dur: 0.14, vol: 0.18, type: "square", delay: 0.04 });
+      _playNoiseEx({ dur: 0.10, freq: 4200, type: "highpass", vol: 0.25, delay: 0.15 });
+      _playNoiseEx({ dur: 0.10, freq: 4200, type: "highpass", vol: 0.25, delay: 0.28 });
+    }
+  }
+
+  function sfxBarricadeHit() {
+    if (!_allowCue("barricadeHit", 180, 3, 160)) return;
+    var f0 = 120 + Math.random() * 30;
+    _playToneEx({ freq: f0, slideTo: 58, dur: 0.11, vol: 0.32, type: "triangle", delay: 0 });
+    _playNoiseEx({ dur: 0.09, freq: 720, slideFreq: 340, type: "bandpass", q: 2.4, vol: 0.34, delay: 0 });
+    _playNoiseEx({ dur: 0.045, freq: 2200, type: "highpass", vol: 0.18, delay: 0.015 });
+  }
+
+  function sfxBarricadeBreak() {
+    if (!_allowCue("barricadeBreak", 150, 2, 400)) return;
+    _playToneEx({ freq: 240, slideTo: 62, dur: 0.16, vol: 0.38, type: "sawtooth", delay: 0 });
+    _playNoiseEx({ dur: 0.36, freq: 1650, slideFreq: 380, type: "bandpass", q: 1.5, vol: 0.54, delay: 0 });
+    _playNoiseEx({ dur: 0.14, freq: 2600, type: "highpass", vol: 0.28, delay: 0.09 });
+    _playNoiseEx({ dur: 0.14, freq: 2600, type: "highpass", vol: 0.28, delay: 0.19 });
+    _playToneEx({ freq: 88, slideTo: 30, dur: 0.32, vol: 0.45, type: "sine", delay: 0.06 });
+  }
+
+  function sfxArmoryBuy() {
+    if (!_allowCue("armoryBuy", 120, 2, 320)) return;
+    _playToneEx({ freq: 420, slideTo: 640, dur: 0.06, vol: 0.18, type: "square", delay: 0 });
+    _playNoiseEx({ dur: 0.08, freq: 2400, slideFreq: 1200, type: "bandpass", q: 1.8, vol: 0.26, delay: 0.02 });
+    _playToneEx({ freq: 587.33, dur: 0.10, vol: 0.22, type: "triangle", delay: 0.07 });
+    _playToneEx({ freq: 880, dur: 0.18, vol: 0.24, type: "sine", delay: 0.13 });
+  }
+
+  function sfxAnvilUpgrade() {
+    if (!_allowCue("anvilUpgrade", 180, 2, 480)) return;
+    _playNoiseEx({ dur: 0.05, freq: 3200, slideFreq: 1100, type: "bandpass", q: 1.6, vol: 0.34, delay: 0 });
+    _playToneEx({ freq: 1046.5, dur: 0.48, vol: 0.24, type: "triangle", delay: 0 });
+    _playToneEx({ freq: 1568, dur: 0.42, vol: 0.18, type: "sine", delay: 0 });
+    _playToneEx({ freq: 2349, dur: 0.34, vol: 0.11, type: "sine", delay: 0.005 });
+    _playNoiseEx({ dur: 0.26, freq: 3800, slideFreq: 2200, type: "highpass", vol: 0.14, delay: 0.10 });
+  }
+
+  function sfxGeneratorTick() {
+    if (!_allowCue("generatorTick", 110, 2, 80)) return;
+    _playToneEx({ freq: 760, slideTo: 520, dur: 0.04, vol: 0.16, type: "triangle", delay: 0 });
+    _playNoiseEx({ dur: 0.03, freq: 2200, type: "bandpass", q: 3.0, vol: 0.14, delay: 0 });
+  }
+
+  function sfxGeneratorOn() {
+    if (!_allowCue("generatorOn", 250, 2, 660)) return;
+    _playToneEx({ freq: 140, slideTo: 60, dur: 0.12, vol: 0.30, type: "square", delay: 0 });
+    _playToneEx({ freq: 75, slideTo: 220, dur: 0.62, vol: 0.26, type: "sawtooth", attack: 0.08, delay: 0.04 });
+    _playToneEx({ freq: 150, slideTo: 440, dur: 0.58, vol: 0.20, type: "triangle", attack: 0.08, delay: 0.06 });
+    _playNoiseEx({ dur: 0.38, freq: 400, slideFreq: 1800, type: "bandpass", q: 1.8, vol: 0.22, delay: 0.08 });
+  }
+
+  function sfxRelicPickup() {
+    if (!_allowCue("relicPickup", 200, 2, 630)) return;
+    _playToneEx({ freq: 523.25, dur: 0.24, vol: 0.22, type: "sine", delay: 0 });
+    _playToneEx({ freq: 659.25, dur: 0.26, vol: 0.22, type: "sine", delay: 0.07 });
+    _playToneEx({ freq: 783.99, dur: 0.32, vol: 0.20, type: "triangle", delay: 0.14 });
+    _playToneEx({ freq: 1046.5, dur: 0.42, vol: 0.22, type: "sine", delay: 0.21 });
+    _playNoiseEx({ dur: 0.32, freq: 2600, slideFreq: 3800, type: "bandpass", q: 4.0, vol: 0.10, attack: 0.05, delay: 0.05 });
+  }
+
+  function sfxTotemBreak() {
+    if (!_allowCue("totemBreak", 200, 2, 620)) return;
+    _playNoiseEx({ dur: 0.42, freq: 1800, slideFreq: 220, type: "lowpass", vol: 0.52, delay: 0 });
+    _playNoiseEx({ dur: 0.24, freq: 3200, type: "highpass", vol: 0.30, delay: 0.02 });
+    _playToneEx({ freq: 380, slideTo: 72, dur: 0.58, vol: 0.32, type: "sawtooth", delay: 0.04 });
+    _playToneEx({ freq: 540, slideTo: 95, dur: 0.50, vol: 0.20, type: "triangle", delay: 0.06 });
+  }
+
+  function sfxFlareLaunch() {
+    if (!_allowCue("flareLaunch", 250, 2, 720)) return;
+    _playToneEx({ freq: 180, slideTo: 68, dur: 0.14, vol: 0.42, type: "triangle", delay: 0 });
+    _playToneEx({ freq: 620, slideTo: 2150, dur: 0.52, vol: 0.22, type: "sine", delay: 0.03 });
+    _playNoiseEx({ dur: 0.48, freq: 1400, slideFreq: 3200, type: "bandpass", q: 2.0, vol: 0.30, delay: 0.02 });
+    _playNoiseEx({ dur: 0.22, freq: 2200, slideFreq: 800, type: "bandpass", q: 1.5, vol: 0.32, delay: 0.50 });
+  }
+
+  var _HS_SCALE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
+  function sfxHeadshotStreak(streak) {
+    if (!_allowCue("headshotStreak", 90, 2, 340)) return;
+    var sNum = _finite(streak, 1);
+    var t = Math.max(1, Math.min(8, Math.floor(sNum || 1)));
+    var f = _HS_SCALE[t - 1];
+    _playToneEx({ freq: f, slideTo: f * 1.01, dur: 0.16, vol: 0.22, type: "sine", delay: 0 });
+    _playToneEx({ freq: f * 1.5, dur: 0.22, vol: 0.16, type: "triangle", delay: 0.055 });
+    if (t >= 3) {
+      _playToneEx({ freq: f * 2.0, dur: 0.24, vol: 0.14, type: "sine", delay: 0.10 });
+    }
+  }
+
+  function sfxBreather() {
+    if (!_allowCue("breather", 1500, 1, 950)) return;
+    _playNoiseEx({ dur: 0.95, freq: 950, slideFreq: 340, type: "bandpass", q: 1.4, vol: 0.14, attack: 0.22, delay: 0 });
+    _playToneEx({ freq: 293.66, slideTo: 220, dur: 0.85, vol: 0.15, type: "sine", attack: 0.12, delay: 0.04 });
+    _playToneEx({ freq: 110, dur: 0.90, vol: 0.12, type: "triangle", attack: 0.15, delay: 0.08 });
   }
 
   return {
@@ -295,6 +594,23 @@ FPS.audio = (function () {
     sfxCrow: sfxCrow,
     sfxDoorSlam: sfxDoorSlam,
     playTone: playTone,
-    playNoise: playNoise
+    playNoise: playNoise,
+    sfxShove: sfxShove,
+    sfxSpitterSpit: sfxSpitterSpit,
+    sfxBloaterWarn: sfxBloaterWarn,
+    sfxBloaterBoom: sfxBloaterBoom,
+    sfxStalkerHiss: sfxStalkerHiss,
+    sfxTrapActivate: sfxTrapActivate,
+    sfxBarricadeHit: sfxBarricadeHit,
+    sfxBarricadeBreak: sfxBarricadeBreak,
+    sfxArmoryBuy: sfxArmoryBuy,
+    sfxAnvilUpgrade: sfxAnvilUpgrade,
+    sfxGeneratorTick: sfxGeneratorTick,
+    sfxGeneratorOn: sfxGeneratorOn,
+    sfxRelicPickup: sfxRelicPickup,
+    sfxTotemBreak: sfxTotemBreak,
+    sfxFlareLaunch: sfxFlareLaunch,
+    sfxHeadshotStreak: sfxHeadshotStreak,
+    sfxBreather: sfxBreather
   };
 })();

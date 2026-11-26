@@ -75,17 +75,22 @@ h1.title span{color:var(--blood)}
 .lbMini{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#cfd5c4;flex-wrap:wrap;font-family:Consolas,monospace}
 /* ---------- HUD ---------- */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:20;font-family:Consolas,'Courier New',monospace}
-#hudTopLeft{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:min(280px,46vw)}
+#hudTopLeft{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:min(272px,44vw)}
 .hudChip{background:rgba(5,8,7,.64);border:1px solid rgba(255,255,255,.12);padding:4px 8px}
 #hudTL{font-size:12px;line-height:1.35;text-shadow:0 1px 3px #000;white-space:nowrap}
 #hudTL b{color:#fff;font-size:13.5px}
 #hudMeta{display:flex;align-items:center;gap:8px;font-size:9.5px;color:rgba(194,202,182,.85);text-shadow:0 1px 2px #000;letter-spacing:.08em}
 #verHud{font-weight:700;color:rgba(230,224,204,.88)}
+#scrapRow{display:inline-flex;align-items:center;gap:6px;font-size:11px;line-height:1.2;color:#dfd8c4;white-space:nowrap;padding:3px 8px}
+#scrapVal{color:#ffe29a;font-size:12px}
+#comboBadge{color:#ff9c42;font-weight:700;font-size:10.5px}
 #missionBox{width:min(256px,44vw);border-left:3px solid var(--amber);padding:5px 8px;display:flex;flex-direction:column;gap:3px;transition:border-color .25s,box-shadow .25s}
 #missionTitle{font-family:'BeVietnamPro',Georgia,serif;font-size:11.5px;font-weight:700;color:#f3eee0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #missionQuota{font-size:11px;font-weight:700;color:#ffd082;line-height:1.25}
 #missionBarBg{width:100%;height:5px;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.14);overflow:hidden}
 #missionBar{height:100%;width:0%;background:linear-gradient(90deg,#e07a24,#ffd166);transition:width .2s}
+#objDetail{font-size:10px;line-height:1.25;color:#bfe8cf}
+#objDetail:empty{display:none}
 @keyframes portalPulse{0%,100%{box-shadow:0 0 8px rgba(45,255,136,.35);border-color:rgba(45,255,136,.6)}50%{box-shadow:0 0 18px rgba(45,255,136,.75),inset 0 0 8px rgba(45,255,136,.2);border-color:#ffd166}}
 #missionBox.unlocked{border-left-color:var(--emerald);background:rgba(6,24,15,.78);animation:portalPulse 1.25s infinite}
 #missionBox.unlocked #missionQuota{color:#5effa8}
@@ -139,10 +144,21 @@ h1.title span{color:var(--blood)}
 #wname{font-size:10.5px;color:#cfc9b4;letter-spacing:.12em;text-transform:uppercase;text-shadow:0 1px 2px #000}
 #reloadHint{font-size:10.5px;color:#ffdf6b;height:13px}
 
-#bossWrap{position:absolute;left:50%;top:10px;transform:translateX(-50%);width:min(340px,42vw);text-align:center}
+#bossWrap{position:absolute;left:50%;top:10px;transform:translateX(-50%);width:min(340px,36vw);text-align:center}
 #bossName{font-size:11px;letter-spacing:.18em;color:#ff6b5e;text-transform:uppercase;text-shadow:0 0 8px rgba(255,0,0,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #bossBarBg{height:8px;background:rgba(0,0,0,.72);border:1px solid #7d0a14;margin-top:2px}
 #bossBar{height:100%;width:100%;background:linear-gradient(180deg,#ff4d3d,#8f0d16)}
+#interactPrompt{position:absolute;left:50%;top:calc(50% + 40px);transform:translateX(-50%);max-width:min(360px,82vw);font-size:11.5px;font-weight:700;color:#ffe9a8;border-color:rgba(255,215,107,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;z-index:24}
+#shoveHud{position:absolute;left:10px;bottom:54px;max-width:170px;font-size:11px;color:#d8f2ff;border-color:rgba(110,220,255,.36);white-space:nowrap}
+#shoveHud.cd{color:#9aa5ad;border-color:rgba(255,255,255,.14)}
+#shoveHud.lowstam{color:#ffb048;border-color:rgba(255,176,72,.45)}
+#weaponSlots{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:6px;align-items:stretch}
+.wslot{display:flex;align-items:center;gap:4px;background:rgba(5,8,7,.72);border:1px solid rgba(255,255,255,.18);padding:4px 8px;font-size:10.5px;color:#cfc9b4;white-space:nowrap}
+.wslot b{color:#ffe29a;font-size:11px}
+.wslot .wtier{font-size:9.5px;color:#8bffbe}
+.wslot.active{border-color:#ff4d5a;background:rgba(56,14,18,.88);color:#fff;box-shadow:0 0 10px rgba(230,57,70,.38)}
+.wslot.locked{opacity:.52;border-style:dashed}
+.wslot.locked .wtier{color:#ffb36b}
 #announce{position:absolute;left:50%;top:22%;transform:translateX(-50%);text-align:center;opacity:0;transition:opacity .35s;width:92vw;pointer-events:none}
 #announce .big{font-family:'BeVietnamPro',Georgia,serif;font-size:clamp(20px,4.5vw,34px);font-weight:900;letter-spacing:.08em;color:#f0ead6;text-shadow:0 0 18px rgba(193,18,31,.8),0 2px 0 #000;text-transform:uppercase}
 #announce .sub{font-size:clamp(12px,2.3vw,15px);color:#ffb3ab;font-style:italic;margin-top:2px}
@@ -172,7 +188,9 @@ h1.title span{color:var(--blood)}
 #btnJump{right:18px;bottom:144px;width:44px;height:44px;font-size:10px}
 #btnFlare{right:90px;bottom:156px;width:44px;height:44px;font-size:10px;background:rgba(160,65,12,.58);border-color:rgba(255,175,85,.48)}
 #btnFlash{right:18px;bottom:196px;width:40px;height:40px;font-size:10px}
-#btnPauseM{position:fixed;left:8px;top:120px;width:34px;height:34px;border-radius:8px;z-index:31;font-size:11px}
+#btnShove{right:144px;bottom:56px;width:46px;height:46px;font-size:10px;background:rgba(24,58,74,.68);border-color:rgba(110,220,255,.48)}
+#btnInteract{left:50%;transform:translateX(-50%);top:calc(50% + 38px);bottom:auto;width:auto;min-width:96px;max-width:240px;height:38px;padding:6px 14px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(18,42,24,.88);border-color:rgba(45,255,136,.72);color:#eafff2;z-index:31;white-space:nowrap}
+#btnPauseM{position:fixed;right:8px;left:auto;top:144px;width:34px;height:34px;border-radius:8px;z-index:31;font-size:11px}
 
 body.touch.playing #mobile{display:block}
 body.touch #hudBL{bottom:162px;left:10px}
@@ -180,7 +198,35 @@ body.touch #hudBR{bottom:246px;top:auto;right:10px}
 body.touch #ammo{font-size:20px;white-space:nowrap}
 body.touch #wname{font-size:10px}
 body.touch #flareChip{font-size:10px;padding:2px 6px}
-body.touch #noteToast{bottom:264px}
+body.touch #noteToast{top:224px;bottom:auto;width:min(366px,94vw)}
+body.touch #interactPrompt,body.touch #shoveHud{display:none!important}
+body.touch #weaponSlots{left:8px;bottom:8px;transform:none;max-width:calc(100vw - 108px);gap:3px;overflow:hidden}
+body.touch .wslot{padding:3px 4px;font-size:9px;gap:2px;min-width:0}
+body.touch .wslot b{font-size:10px}
+body.touch .wslot .wtier{font-size:8.5px}
+body.touch .wslot span{display:none}
+
+/* armory & anvil modal */
+#armoryScr{z-index:45}
+.armoryCard{width:min(560px,94vw);max-height:calc(100vh - 20px);display:flex;flex-direction:column;gap:10px;padding:14px;border-top:3px solid var(--amber)}
+.armoryHead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.armoryHeadTxt{flex:1;min-width:180px;text-align:left}
+#armoryTitle{text-align:left;font-size:clamp(18px,3.6vw,26px)}
+#armorySub{text-align:left;margin-top:2px;font-size:11.5px}
+.armoryScrapChip{font-family:Consolas,monospace;font-size:12px;color:#ffe29a;white-space:nowrap}
+#armoryList{display:flex;flex-direction:column;gap:7px;overflow-y:auto;max-height:calc(100vh - 190px);padding-right:2px}
+.armoryItem{display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(14,18,15,.92);border:1px solid rgba(118,130,105,.36);padding:8px 10px}
+.armoryItem.isLocked{border-style:dashed;opacity:.9}
+.armoryInfo{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.armoryNameRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:#f3eee0}
+.armoryTier{font-family:Consolas,monospace;font-size:10.5px;padding:1px 6px;border:1px solid rgba(45,255,136,.45);color:#8bffbe;background:rgba(6,26,15,.75)}
+.armoryTier.fire{border-color:rgba(255,136,51,.65);color:#ffb36b;background:rgba(45,16,6,.8)}
+.armoryStats{font-family:Consolas,monospace;font-size:10.5px;color:#b9b39e}
+.armoryActions{flex-shrink:0}
+.armoryBtn{padding:6px 12px;font-size:11px;letter-spacing:.05em;white-space:nowrap}
+.armoryBtn:disabled{opacity:.55;cursor:not-allowed}
+.armoryUnlockedTag{font-family:Consolas,monospace;font-size:11px;color:#8bffbe;font-weight:700;white-space:nowrap}
+.armoryFoot{margin-top:2px}
 
 .statgrid{display:grid;grid-template-columns:1fr auto;gap:4px 18px;font-size:13.5px}
 .statgrid b{color:#fff;text-align:right;font-family:Consolas,monospace}
@@ -200,9 +246,9 @@ body.lowhp #vignette{animation:heartPulse .85s infinite}
 #zoneBanner{position:absolute;left:50%;top:14%;transform:translateX(-50%);text-align:center;opacity:0;transition:opacity .5s;width:92vw;pointer-events:none}
 #zoneBanner .zbName{font-family:'BeVietnamPro',Georgia,serif;font-size:clamp(18px,4.2vw,28px);font-weight:900;letter-spacing:.12em;color:#ffe9a8;text-shadow:0 0 14px rgba(255,190,60,.45),0 2px 0 #000;text-transform:uppercase}
 #zoneBanner .zbSub{font-size:10.5px;letter-spacing:.3em;color:#b9b39e;text-transform:uppercase;margin-top:2px}
-#noteToast{position:absolute;left:50%;bottom:15%;transform:translateX(-50%);width:min(520px,92vw);background:var(--panel);border:1px solid #8a7a3a;padding:8px 12px;font-size:12.5px;line-height:1.45;font-style:italic;color:#f0ead6;opacity:0;transition:opacity .35s;pointer-events:none;text-align:center}
+#noteToast{position:absolute;left:50%;bottom:106px;transform:translateX(-50%);width:min(460px,46vw);background:var(--panel);border:1px solid #8a7a3a;padding:8px 12px;font-size:12.5px;line-height:1.45;font-style:italic;color:#f0ead6;opacity:0;transition:opacity .35s;pointer-events:none;text-align:center}
 #noteToast.show{opacity:1}
-#lockHint{position:fixed;left:50%;bottom:54px;transform:translateX(-50%);z-index:22;background:rgba(10,12,10,.88);border:1px solid rgba(255,215,107,.45);color:#ffe9a8;padding:6px 14px;border-radius:999px;font-size:11.5px;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+#lockHint{position:fixed;left:50%;bottom:54px;transform:translateX(-50%);z-index:22;background:rgba(10,12,10,.88);border:1px solid rgba(255,215,107,.45);color:#ffe9a8;padding:6px 14px;border-radius:999px;font-size:11.5px;white-space:nowrap;max-width:min(560px,calc(100vw - 390px));overflow:hidden;text-overflow:ellipsis}
 body.touch #lockHint{display:none!important}
 #endSub{max-width:560px;line-height:1.5}
 .storyPanel{max-width:520px;padding:0;overflow:hidden}
@@ -222,18 +268,25 @@ body.touch #lockHint{display:none!important}
   .upcard{width:min(260px,88vw)}
   #perkCards{flex-direction:column;align-items:center}
   .storyPanel img{height:110px}
-  #hudTopLeft{left:8px;top:8px;gap:3px;max-width:calc(100vw - 112px)}
+  .armoryCard{padding:10px;gap:8px}
+  .armoryItem{flex-direction:column;align-items:stretch;gap:6px;padding:7px 8px}
+  .armoryActions{display:flex;justify-content:flex-end}
+  .armoryBtn{width:100%}
+  #hudTopLeft{left:8px;top:8px;gap:3px;max-width:calc(100vw - 138px)}
   #hudTL{font-size:11px;padding:3px 6px}
   #hudTL b{font-size:12px}
   #hudMeta{font-size:8.5px;gap:5px}
-  #missionBox{width:min(234px,calc(100vw - 114px));padding:4px 6px}
+  #scrapRow{font-size:10px;padding:2px 6px}
+  #comboBadge{font-size:9.5px}
+  #missionBox{width:min(234px,calc(100vw - 138px));padding:4px 6px}
   #missionTitle{font-size:10.5px}
   #missionQuota{font-size:10px}
+  #objDetail{font-size:9.5px}
   #hudTR{right:8px;top:8px;font-size:11px;padding:3px 6px}
   #radarBox{top:34px;right:8px}
   #fpsRadar{width:82px;height:82px}
   #radarZone{font-size:9px;max-width:120px;padding:2px 5px}
-  #bossWrap{top:148px;left:50%;transform:translateX(-50%);width:min(290px,calc(100vw - 24px))}
+  #bossWrap{top:184px;left:50%;transform:translateX(-50%);width:min(320px,calc(100vw - 24px))}
   #announce{top:25%}
   #hpWrap,#stamWrap{width:152px}
 }

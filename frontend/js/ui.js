@@ -11,6 +11,11 @@ FPS.ui = (function () {
   var _projV = null;
   var _viewV = null;
   var _lastSelect = { profile: null, selectedLevelId: 1, onPickLevel: null };
+  var _lastProf = null;
+  var _lastLb = null;
+  var _armoryMode = null;
+  var _stalkerTimer = null;
+  var _blindTimer = null;
   var _radarWallCanvas = null;
   var _radarWallLvId = null;
   var _radarWallScale = 0;
@@ -125,7 +130,9 @@ FPS.ui = (function () {
     var wk = curWeapon || fe.curWeapon || "pistol";
     var W = FPS.WEAPONS && FPS.WEAPONS[wk];
     if (!W) return;
-    _setTxt("wname", W.name + (g.flashOn ? " · 🔦" : ""));
+    var L = FPS.LANG || "vi";
+    var wName = (wk === "thuanthien" && L === "en") ? "Thuan Thien Sword" : W.name;
+    _setTxt("wname", wName + (g.flashOn ? " · 🔦" : ""));
   }
 
   function updateReloadBar(now, G) {
@@ -155,7 +162,7 @@ FPS.ui = (function () {
     var g = (FPS.state && FPS.state.G) || _emptyObj;
     var camEl = FPS.world && FPS.world.renderer && FPS.world.renderer.domElement;
     var locked = !!(camEl && document.pointerLockElement === camEl);
-    var show = g.state === "playing" && !document.body.classList.contains("touch") && !locked;
+    var show = g.state === "playing" && !g.armoryOpen && !document.body.classList.contains("touch") && !locked;
     _toggleHidden("lockHint", !show);
     var txt = _lastPlFallback ? _t("lockHintFb", "🖱 Khung nhúng này chặn khóa chuột — cứ di chuột để ngắm, click để bắn", "🖱 Embedded frame blocks mouse lock — move to aim, click to shoot")
                          : _t("lockHint", "🖱 Click vào màn hình để khóa chuột — di chuột để ngắm · Esc để thả chuột", "🖱 Click the screen to lock your mouse — move to aim · Esc to release");
@@ -277,6 +284,9 @@ FPS.ui = (function () {
     if (bVi) bVi.classList.toggle("on", L === "vi");
     if (bEn) bEn.classList.toggle("on", L === "en");
 
+    var vm = _el("volMute");
+    if (vm) vm.textContent = L === "en" ? "Mute" : "Tắt tiếng";
+
     // Invalidate localized HUD text caches
     _cache.flareChip = null;
     _cache.reloadHint = null;
@@ -286,13 +296,106 @@ FPS.ui = (function () {
     _cache.extractBarTxt = null;
     _cache.radarZone = null;
     _cache.lockHint = null;
+    _cache.bossName = null;
+    _cache.objDetail = null;
+    _cache.scrapVal = null;
+    _cache.comboBadge = null;
+    _cache.shoveHud = null;
+    _cache.interactPrompt = null;
+    _cache.btnInteract = null;
+    _cache.weaponSlots = null;
+    _cache.qBadge = null;
 
+    if (FPS.perf && typeof FPS.perf.applyQuality === "function") {
+      FPS.perf.applyQuality();
+    }
+    if (_lastProf !== null || _lastLb !== null) {
+      renderLeaderboard(_lastProf, _lastLb);
+    }
     if (FPS.LEVELS && _el("levelGrid")) {
       renderLevelSelect(_lastSelect.profile, _lastSelect.selectedLevelId, _lastSelect.onPickLevel);
     }
     updateWeaponLabel();
     updateHUD();
     updateLockHint();
+
+    var armScr = _el("armoryScr");
+    if (_armoryMode && armScr && !armScr.classList.contains("hidden")) {
+      renderArmoryList(_armoryMode);
+    }
+  }
+
+  function formatObjDetail(G, level) {
+    var os = (G && G.objState) || _emptyObj;
+    var type = os.type || (level && level.objective && level.objective.type) || "none";
+    if (type === "gate") {
+      if (os.gateBroken) return _t("objGateBroken", "CỔNG GỖ ĐÃ VỠ — CHẠY TỚI ĐIỂM THOÁT!", "WOODEN GATE DESTROYED — REACH EXTRACTION!");
+      if ((G.levelKills || 0) >= (G.killQuota || 1)) {
+        return _t("objGateHint", "Đủ chỉ tiêu! Bắn vỡ Cổng Gỗ trước lối thoát", "Quota met! Shoot down the Wooden Gate") + " (" + Math.max(0, Math.ceil(os.gateHp || 0)) + ")";
+      }
+      return _t("objGate", "Phá Cổng Gỗ Chặn Lối", "Destroy Wooden Blockade Gate");
+    }
+    if (type === "generators") {
+      var gDone = os.done !== undefined ? os.done : (os.activatedCount || 0);
+      var gTot = os.total || 2;
+      if (gDone >= gTot) {
+        return _t("objGenDone", "ĐIỆN ĐÃ BẬT — PHÒNG THỦ ĐỢT QUÁI TRÀN!", "POWER RESTORED — SURVIVE THE PANIC HORDE!") + (G.panicT > 0 ? (" (" + Math.ceil(G.panicT) + "s)") : "");
+      }
+      return _t("objGen", "Kích hoạt Máy Phát Điện", "Activate Power Generators") + ": " + gDone + "/" + gTot;
+    }
+    if (type === "relics") {
+      var rCol = os.collected || 0;
+      var rTot = os.total || 2;
+      if ((G.carryingRelics || 0) > 0) {
+        return _t("objRelicCarry", "Đang mang Di Vật (-12% tốc độ) — Mang về Cổng Thoát!", "Carrying Relic (-12% speed) — Bring to Extraction!") + " (" + rCol + "/" + rTot + ")";
+      }
+      return _t("objRelic", "Thu hồi Di Vật của Linh", "Recover Linh's Relics") + ": " + rCol + "/" + rTot;
+    }
+    if (type === "totems") {
+      var tBrk = os.broken !== undefined ? os.broken : (os.brokenTotems || 0);
+      var tTot = os.total || 3;
+      if (tBrk >= tTot) return _t("objTotemAllBroken", "TOÀN BỘ TRỤ NGUYỀN ĐÃ VỠ — GIÁP VUA ORC ĐÃ TẮT!", "ALL TOTEMS SHATTERED — ORC LORD ARMOR DOWN!");
+      return _t("objTotem", "Phá Trụ Nguyền", "Destroy Cursed Totems") + ": " + tBrk + "/" + tTot;
+    }
+    if (type === "holdout") {
+      if (os.boatArrived) return _t("objBoatHere", "THUYỀN ĐÃ CẬP BẾN — LÊN THUYỀN THOÁT HIỂM!", "BOAT ARRIVED — BOARD TO EXTRACT!");
+      if (os.holdoutActive) return _t("objHoldoutActive", "ĐANG THỦ CẦU TÀU", "HOLDING THE PIER") + ": " + Math.max(0, Math.ceil(os.holdLeft || 0)) + "s";
+      return _t("objHoldoutWait", "Bắn pháo hiệu tại đầu cầu tàu (Nhấn E)", "Fire the signal flare on the pier (Press E)");
+    }
+    return "";
+  }
+
+  function updateInteractPrompt(G) {
+    var tgt = G && G.interactTarget;
+    var show = !!(G && G.state === "playing" && tgt && !G.armoryOpen);
+    _toggleHidden("interactPrompt", !show);
+    _toggleHidden("btnInteract", !show);
+    if (!show) {
+      _setTxt("btnInteract", _t("mInteract", "DÙNG", "USE"));
+      return;
+    }
+    var txt = _t("pressE", "[E] Tương tác", "[E] Interact");
+    if (tgt.kind === "armory") txt = _t("promptArmory", "[E] Mở Hòm Vũ Khí", "[E] Open Armory");
+    else if (tgt.kind === "anvil") txt = _t("promptAnvil", "[E] Mở Bàn Rèn", "[E] Open Anvil");
+    else if (tgt.kind === "generator") txt = _t("promptGen", "[Giữ E] Khởi động Máy Phát", "[Hold E] Start Generator");
+    else if (tgt.kind === "relic") txt = _t("promptRelic", "[E] Nhặt Di Vật của Linh", "[E] Pick up Linh's Relic");
+    else if (tgt.kind === "flare") txt = _t("promptFlare", "[E] Bắn Pháo Hiệu Gọi Thuyền", "[E] Fire Boat Signal Flare");
+    else if (tgt.kind === "trap") {
+      var tk = (tgt.obj && tgt.obj.kind) === "fire" ? "trapFire" : "trapElectric";
+      txt = _t("promptTrap", "[E] Kích hoạt Bẫy", "[E] Trigger Trap") + " · " + _t(tk, tk, tk);
+    } else if (tgt.kind === "barricade") {
+      var repCost = (FPS.BARRICADES && FPS.BARRICADES.repairCost) || 20;
+      txt = _t("promptBarricade", "[E] Gia cố Rào Gỗ", "[E] Reinforce Barricade") + " (" + repCost + " " + _t("scrapLabel", "Scrap", "Scrap") + ")";
+    }
+    var prog = G.interactProg || 0;
+    if (tgt.holdSec > 0 && prog > 0.01) {
+      txt += " · " + Math.min(100, Math.round(prog * 100)) + "%";
+    }
+    _setTxt("interactPrompt", txt);
+
+    var mTxt = _t("mInteract", "DÙNG", "USE");
+    if (tgt.holdSec > 0 && prog > 0.01) mTxt += " " + Math.min(100, Math.round(prog * 100)) + "%";
+    _setTxt("btnInteract", mTxt);
   }
 
   function updateHUD(state) {
@@ -305,6 +408,21 @@ FPS.ui = (function () {
     _setTxt("hScore", String(Math.floor(G.score || 0)));
     _setTxt("hKills", String(G.totalKills !== undefined ? G.totalKills : (G.kills || 0)));
     _setTxt("hBarrels", String(G.barrelsPopped || 0));
+
+    // Scrap & Headshot Combo
+    var scrapFloor = Math.floor(G.scrap || 0);
+    _setTxt("scrapVal", String(scrapFloor));
+    if (_armoryMode) {
+      var armScr = _el("armoryScr");
+      if (armScr && !armScr.classList.contains("hidden") && _cache.armoryScrapRendered !== scrapFloor) {
+        renderArmoryList(_armoryMode);
+      }
+    }
+    var streak = G.hsStreak || 0;
+    var mult = G.hsMult || 1;
+    var showCombo = streak >= 1 && mult > 1;
+    _toggleHidden("comboBadge", !showCombo);
+    _setTxt("comboBadge", showCombo ? ("🔥 x" + Number(mult).toFixed(1) + " (" + streak + ")") : "");
 
     // Mission box
     var lvName = level ? (L === "en" ? (level.nameEn || level.nameVi) : (level.nameVi || level.nameEn)) : "";
@@ -326,6 +444,7 @@ FPS.ui = (function () {
       var pct = Math.max(0, Math.min(100, Math.round((kills / Math.max(1, quota)) * 100)));
       _setStyle("missionBar", "width", pct + "%");
     }
+    _setTxt("objDetail", formatObjDetail(G, level));
 
     // Extraction hold progress bar
     var holdSec = (level && level.extractHoldSec) || 2.5;
@@ -338,14 +457,14 @@ FPS.ui = (function () {
       _setTxt("extractBarTxt", _t("objHolding", "ĐANG THOÁT HIỂM...", "EXTRACTING...") + " " + exPct + "%");
     }
 
-    // Boss bar
+    // Boss bar (live re-translation via bKey)
     var boss = s.bossRef;
     var showBoss = !!(G.state === "playing" && boss && !boss.dead);
     _toggleHidden("bossWrap", !showBoss);
     if (showBoss) {
-      var bType = boss.key || (level && level.bossType) || "";
-      var bKey = bType === "minotaur" ? "bossNameMino" : (bType === "orcking" ? "bossNameOrc" : "bossName");
-      _setTxt("bossName", boss.name || _t(bKey, "☠ BOSS ☠", "☠ BOSS ☠"));
+      var bType = boss.type || boss.key || (level && level.bossType) || "";
+      var bKey = bType === "minotaur" ? "bossNameMino" : ((bType === "orcking" || bType === "boss") ? "bossNameOrc" : "bossName");
+      _setTxt("bossName", _t(bKey, "☠ BOSS ☠", "☠ BOSS ☠"));
       _setStyle("bossBar", "width", Math.max(0, Math.min(100, (boss.hp / Math.max(1, boss.maxHp)) * 100)).toFixed(1) + "%");
     }
 
@@ -359,9 +478,17 @@ FPS.ui = (function () {
     _setStyle("stamBar", "width", Math.max(0, Math.min(100, stamVal)).toFixed(1) + "%");
     _toggleCls("stamWrap", "locked", !!(G.stamLocked || G.stamLock));
 
-    // Low HP vignette + pulse
-    _setStyle("vignette", "opacity", hpNow < maxHp * 0.4 ? "0.55" : "0");
-    var isLow = G.state === "playing" && hpNow > 0 && hpNow < maxHp * 0.3;
+    // Shove HUD
+    var shoveCd = G.shoveCd || 0;
+    var shoveCost = (FPS.SHOVE && FPS.SHOVE.staminaCost) || 22;
+    _setTxt("shoveHud", shoveCd > 0 ? ("👊 " + shoveCd.toFixed(1) + "s") : _t("shoveReady", "👊 V: Đẩy lùi", "👊 V: Shove"));
+    _toggleCls("shoveHud", "cd", shoveCd > 0);
+    _toggleCls("shoveHud", "lowstam", stamVal < shoveCost);
+
+    // Low HP vignette + pulse (only during active gameplay)
+    var isPlaying = G.state === "playing";
+    _setStyle("vignette", "opacity", (isPlaying && hpNow < maxHp * 0.4) ? "0.55" : "0");
+    var isLow = isPlaying && hpNow > 0 && hpNow < maxHp * 0.3;
     if (_cache.lowHp !== isLow) {
       _cache.lowHp = isLow;
       document.body.classList.toggle("lowhp", isLow);
@@ -373,7 +500,7 @@ FPS.ui = (function () {
     _setTxt("flareChip", flTxt);
     _toggleCls("flareChip", "cd", fcd);
 
-    // Weapon & Ammo
+    // Weapon & Ammo + Weapon Slots
     updateWeaponLabel(s.curWeapon, G);
     var W = FPS.WEAPONS && FPS.WEAPONS[s.curWeapon];
     var wst = s.wState && s.wState[s.curWeapon];
@@ -384,8 +511,35 @@ FPS.ui = (function () {
         var amEl = _el("ammo");
         if (amEl) amEl.innerHTML = amHtml;
       }
-      var rh = W.melee ? "" : (G.reloading ? _t("reloading", "ĐANG NẠP…", "RELOADING…") : (wst.mag <= Math.ceil(W.mag * 0.25) && wst.reserve > 0 ? _t("lowAmmo", "SẮP HẾT ĐẠN — NHẤN R", "LOW AMMO — PRESS R") : ""));
+      var capMag = wst.maxMag || W.mag;
+      var rh = W.melee ? "" : (G.reloading ? _t("reloading", "ĐANG NẠP…", "RELOADING…") : (wst.mag <= Math.ceil(capMag * 0.25) && wst.reserve > 0 ? _t("lowAmmo", "SẮP HẾT ĐẠN — NHẤN R", "LOW AMMO — PRESS R") : ""));
       _setTxt("reloadHint", rh);
+    }
+
+    var unlockedMap = G.unlockedWeapons || { pistol: true, thuanthien: true };
+    var tierMap = G.weaponTiers || { pistol: 1, shotgun: 1, rifle: 1, thuanthien: 1 };
+    var wOrder = ["pistol", "shotgun", "rifle", "thuanthien"];
+    var slotSig = L + "|" + s.curWeapon + "|" + wOrder.map(function (k) {
+      return (unlockedMap[k] ? "1" : "0") + ":" + (tierMap[k] || 1);
+    }).join(",");
+    if (_cache.weaponSlots !== slotSig) {
+      _cache.weaponSlots = slotSig;
+      var wsWrap = _el("weaponSlots");
+      if (wsWrap) {
+        var slotEls = wsWrap.querySelectorAll(".wslot");
+        for (var wi = 0; wi < slotEls.length; wi++) {
+          var sl = slotEls[wi];
+          var wk = sl.getAttribute("data-w");
+          var isUnl = !!unlockedMap[wk];
+          var tNum = tierMap[wk] || 1;
+          sl.classList.toggle("active", wk === s.curWeapon);
+          sl.classList.toggle("locked", !isUnl);
+          var nSpan = sl.querySelector("span");
+          if (nSpan && wk === "thuanthien") nSpan.textContent = L === "en" ? "Thuan Thien" : "Thuận Thiên";
+          var tEl = sl.querySelector(".wtier");
+          if (tEl) tEl.textContent = isUnl ? (tNum >= 3 ? "Mk.III 🔥" : (tNum === 2 ? "Mk.II" : "Mk.I")) : "🔒";
+        }
+      }
     }
 
     // Radar zone label (strip "Màn N: " / "Stage N: " prefix so district name fits cleanly under radar)
@@ -396,6 +550,7 @@ FPS.ui = (function () {
 
     updateReloadBar(performance.now(), G);
     updateCrosshair(G);
+    updateInteractPrompt(G);
   }
 
   function drawRadar(state) {
@@ -810,29 +965,260 @@ FPS.ui = (function () {
 
     var endScr = _el("endScr");
     if (endScr) endScr.classList.remove("hidden");
+    updateHUD();
+  }
+
+  function renderLeaderboard(prof, lb) {
+    _lastProf = prof;
+    _lastLb = lb;
+    var el = _el("lbBox");
+    if (!el) return;
+    var L = FPS.LANG || "vi";
+    var top = lb && lb[0]
+      ? ("Top #1: " + lb[0].name + " (" + lb[0].score + " pts, S" + (lb[0].level || lb[0].wave || 1) + ")")
+      : (L === "en" ? "No runs recorded yet" : "Chưa có kỷ lục");
+    var totalStages = (FPS.LEVELS && FPS.LEVELS.length) || 5;
+    var best = prof && prof.bestScore
+      ? ("Best: " + prof.bestScore + " pts · " + (L === "en" ? "Stage " : "Màn ") + (prof.highestLevel || prof.bestWave || 1) + "/" + totalStages)
+      : (L === "en" ? ("Unlocked: Stage " + ((prof && prof.highestLevel) || 1) + "/" + totalStages) : ("Đã mở: Màn " + ((prof && prof.highestLevel) || 1) + "/" + totalStages));
+    el.innerHTML = "<span></span><span></span>";
+    el.children[0].textContent = best;
+    el.children[1].textContent = top;
+  }
+
+  function renderArmoryList(mode) {
+    var m = mode === "anvil" ? "anvil" : "armory";
+    var g = (FPS.state && FPS.state.G) || _emptyObj;
+    var fe = FPS.entities || _emptyObj;
+    var L = FPS.LANG || "vi";
+
+    var titleEl = _el("armoryTitle");
+    var subEl = _el("armorySub");
+    var scrapEl = _el("armoryScrap");
+    var closeEl = _el("btnArmoryClose");
+    var scrapFloor = Math.floor(g.scrap || 0);
+    _cache.armoryScrapRendered = scrapFloor;
+    if (titleEl) titleEl.textContent = _t(m === "anvil" ? "anvilTitle" : "armoryTitle", m === "anvil" ? "BÀN RÈN NÂNG CẤP" : "HÒM VŨ KHÍ", m === "anvil" ? "UPGRADE ANVIL" : "FIELD ARMORY");
+    if (subEl) subEl.textContent = _t(m === "anvil" ? "anvilSub" : "armorySub", m === "anvil" ? "Tôi luyện vũ khí từ Mk.I lên Mk.III (Đạn Lửa)" : "Dùng Scrap mở khóa vũ khí chiến thuật", m === "anvil" ? "Forge weapons from Mk.I to Mk.III (Incendiary)" : "Spend Scrap to unlock tactical weapons");
+    if (scrapEl) scrapEl.textContent = String(scrapFloor);
+    if (closeEl) closeEl.textContent = _t("armoryClose", "Đóng (Esc / E)", "Close (Esc / E)");
+
+    var list = _el("armoryList");
+    if (!list) return;
+    list.innerHTML = "";
+
+    var upCfg = FPS.UPGRADES || _emptyObj;
+    var unlockCosts = upCfg.unlockCosts || { pistol: 0, shotgun: 120, rifle: 180, thuanthien: 0 };
+    var maxTier = upCfg.maxTier || 3;
+    var tiers = upCfg.tiers || _emptyObj;
+    var scrap = g.scrap || 0;
+    var order = ["pistol", "shotgun", "rifle", "thuanthien"];
+
+    for (var i = 0; i < order.length; i++) {
+      (function (wk) {
+        var base = FPS.WEAPONS && FPS.WEAPONS[wk];
+        if (!base) return;
+        var unlocked = typeof fe.isWeaponUnlocked === "function"
+          ? fe.isWeaponUnlocked(wk)
+          : !!(g.unlockedWeapons ? g.unlockedWeapons[wk] : (wk === "pistol" || wk === "thuanthien"));
+        var tier = typeof fe.getWeaponTier === "function"
+          ? fe.getWeaponTier(wk)
+          : ((g.weaponTiers && g.weaponTiers[wk]) || 1);
+        var stats = typeof fe.getWeaponStats === "function"
+          ? fe.getWeaponStats(wk)
+          : { dmg: base.dmg, mag: base.mag, fireAmmo: tier >= 3, tier: tier };
+        var tierLabel = (tiers[tier] && tiers[tier].label) || (tier === 3 ? "Mk.III" : (tier === 2 ? "Mk.II" : "Mk.I"));
+
+        var row = document.createElement("div");
+        row.className = "armoryItem" + (unlocked ? "" : " isLocked");
+        row.setAttribute("data-w", wk);
+
+        var info = document.createElement("div");
+        info.className = "armoryInfo";
+
+        var head = document.createElement("div");
+        head.className = "armoryNameRow";
+        var wTitle = document.createElement("b");
+        wTitle.textContent = (wk === "thuanthien" && L === "en") ? "Thuan Thien Sword" : base.name;
+        var tBadge = document.createElement("span");
+        tBadge.className = "armoryTier" + (tier >= 3 ? " fire" : "");
+        tBadge.textContent = unlocked ? (tierLabel + (stats.fireAmmo ? " 🔥" : "")) : "🔒";
+        head.appendChild(wTitle);
+        head.appendChild(tBadge);
+
+        var statLine = document.createElement("div");
+        statLine.className = "armoryStats";
+        var dmgLbl = L === "en" ? "DMG" : "ST";
+        var magLbl = base.melee ? (L === "en" ? "Melee" : "Cận chiến") : ((L === "en" ? "Mag " : "Băng ") + stats.mag);
+        statLine.textContent = dmgLbl + " " + stats.dmg + (base.pellets > 1 ? "x" + base.pellets : "") + " · " + magLbl + (stats.fireAmmo ? (" · " + _t("armoryFirePerk", "Đạn Lửa Thiêu Đốt", "Incendiary DoT")) : "");
+
+        info.appendChild(head);
+        info.appendChild(statLine);
+        row.appendChild(info);
+
+        var actWrap = document.createElement("div");
+        actWrap.className = "armoryActions";
+
+        if (!unlocked) {
+          var uCost = unlockCosts[wk] || 0;
+          var uBtn = document.createElement("button");
+          uBtn.type = "button";
+          uBtn.className = "btn armoryBtn" + ((m === "anvil" || scrap < uCost) ? " ghost" : "");
+          uBtn.setAttribute("data-action", "unlock");
+          uBtn.setAttribute("data-w", wk);
+          if (m === "anvil") {
+            uBtn.disabled = true;
+            uBtn.textContent = _t("armoryNeedUnlock", "Cần mở khóa trước", "Unlock weapon first");
+          } else {
+            if (scrap < uCost) uBtn.disabled = true;
+            uBtn.textContent = _t("armoryUnlock", "Mở khóa", "Unlock") + " (" + uCost + ")";
+            uBtn.onclick = function () {
+              if (fe.unlockWeapon) fe.unlockWeapon(wk);
+              renderArmoryList(m);
+              updateHUD();
+            };
+          }
+          actWrap.appendChild(uBtn);
+        } else if (m === "armory") {
+          var tag = document.createElement("span");
+          tag.className = "armoryUnlockedTag";
+          tag.textContent = "✓ " + _t("armoryUnlocked", "Đã mở", "Unlocked");
+          actWrap.appendChild(tag);
+        } else {
+          var upBtn = document.createElement("button");
+          upBtn.type = "button";
+          upBtn.className = "btn armoryBtn";
+          upBtn.setAttribute("data-action", "upgrade");
+          upBtn.setAttribute("data-w", wk);
+          if (tier >= maxTier) {
+            upBtn.disabled = true;
+            upBtn.className += " ghost";
+            upBtn.textContent = _t("armoryMaxTier", "Tối đa Mk.III", "Max Mk.III");
+          } else {
+            var nextT = tier + 1;
+            var nextDef = tiers[nextT] || _emptyObj;
+            var nextCost = nextDef.cost || 0;
+            var nextLabel = nextDef.label || ("Mk." + nextT);
+            if (scrap < nextCost) {
+              upBtn.disabled = true;
+              upBtn.className += " ghost";
+            }
+            upBtn.textContent = _t("armoryUpgrade", "Nâng cấp lên", "Upgrade to") + " " + nextLabel + " (" + nextCost + ")";
+            upBtn.onclick = function () {
+              if (fe.upgradeWeapon) fe.upgradeWeapon(wk);
+              renderArmoryList(m);
+              updateHUD();
+            };
+          }
+          actWrap.appendChild(upBtn);
+        }
+
+        row.appendChild(actWrap);
+        list.appendChild(row);
+      })(order[i]);
+    }
+  }
+
+  function openArmory(mode) {
+    _armoryMode = mode === "anvil" ? "anvil" : "armory";
+    var g = FPS.state && FPS.state.G;
+    if (g) {
+      g.armoryOpen = true;
+      g.mouseDown = false;
+    }
+    if (document.pointerLockElement && document.exitPointerLock) {
+      try { document.exitPointerLock(); } catch (e) {}
+    }
+    renderArmoryList(_armoryMode);
+    var scr = _el("armoryScr");
+    if (scr) scr.classList.remove("hidden");
+    updateLockHint();
+  }
+
+  function closeArmory() {
+    _armoryMode = null;
+    _cache.armoryScrapRendered = null;
+    var scr = _el("armoryScr");
+    if (scr) scr.classList.add("hidden");
+    var g = FPS.state && FPS.state.G;
+    if (g) {
+      g.armoryOpen = false;
+      g.mouseDown = false;
+    }
+    updateLockHint();
+  }
+
+  function showStalkerWarn() {
+    var sd = _el("shadowDash");
+    if (!sd) return;
+    sd.style.opacity = "0.85";
+    clearTimeout(_stalkerTimer);
+    _stalkerTimer = setTimeout(function () {
+      var el = _el("shadowDash");
+      if (el) el.style.opacity = "0";
+    }, 1500);
+  }
+
+  function showBloaterBlind(t) {
+    var bv = _el("blackoutVeil");
+    if (!bv) return;
+    clearTimeout(_blindTimer);
+    _blindTimer = null;
+    if (t !== undefined && t !== null && Number.isFinite(Number(t)) && Number(t) <= 0) {
+      bv.style.opacity = "0";
+      return;
+    }
+    var sec = (t === undefined || t === null || !Number.isFinite(Number(t))) ? 1.8 : Number(t);
+    bv.style.opacity = "0.92";
+    var durMs = Math.max(200, Math.round(sec * 1000));
+    _blindTimer = setTimeout(function () {
+      _blindTimer = null;
+      var el = _el("blackoutVeil");
+      if (el) el.style.opacity = "0";
+    }, durMs);
+  }
+
+  function clearTransientUI() {
+    clearTimeout(_annTimer); _annTimer = null;
+    clearTimeout(_toastTimer); _toastTimer = null;
+    clearTimeout(_hitTimer); _hitTimer = null;
+    clearTimeout(_dmgDirTimer); _dmgDirTimer = null;
+    clearTimeout(_stalkerTimer); _stalkerTimer = null;
+    clearTimeout(_blindTimer); _blindTimer = null;
+
+    var bv = _el("blackoutVeil");
+    if (bv) bv.style.opacity = "0";
+    var sd = _el("shadowDash");
+    if (sd) sd.style.opacity = "0";
+    var nt = _el("noteToast");
+    if (nt) nt.classList.remove("show");
+    var an = _el("announce");
+    if (an) {
+      an.classList.remove("show");
+      an.style.opacity = "0";
+    }
+    var hm = _el("hitmarker");
+    if (hm) hm.style.opacity = "0";
+    var dd = _el("dmgDir");
+    if (dd) dd.style.opacity = "0";
+    var vg = _el("vignette");
+    if (vg) vg.style.opacity = "0";
+    _cache["vignette:opacity"] = "0";
+    var df = _el("dmgFlash");
+    if (df) df.style.opacity = "0";
+    _cache.lowHp = false;
+    if (document.body) document.body.classList.remove("lowhp");
   }
 
   async function syncBackendUI(selectedLevelId, onPickLevel) {
     if (!window.FPSApi) return null;
     var prof = await FPSApi.loadProfile();
     var lb = await FPSApi.loadLeaderboard();
+    _lastProf = prof;
+    _lastLb = lb;
     if (prof && prof.lang) applyLang(prof.lang);
 
-    var el = _el("lbBox");
-    if (el) {
-      var L = FPS.LANG || "vi";
-      var top = lb && lb[0]
-        ? ("Top #1: " + lb[0].name + " (" + lb[0].score + " pts, S" + (lb[0].level || lb[0].wave || 1) + ")")
-        : (L === "en" ? "No runs recorded yet" : "Chưa có kỷ lục");
-      var totalStages = (FPS.LEVELS && FPS.LEVELS.length) || 5;
-      var best = prof && prof.bestScore
-        ? ("Best: " + prof.bestScore + " pts · " + (L === "en" ? "Stage " : "Màn ") + (prof.highestLevel || prof.bestWave || 1) + "/" + totalStages)
-        : (L === "en" ? ("Unlocked: Stage " + ((prof && prof.highestLevel) || 1) + "/" + totalStages) : ("Đã mở: Màn " + ((prof && prof.highestLevel) || 1) + "/" + totalStages));
-      el.innerHTML = "<span></span><span></span>";
-      el.children[0].textContent = best;
-      el.children[1].textContent = top;
-    }
-
+    renderLeaderboard(prof, lb);
     renderLevelSelect(prof, selectedLevelId || _lastSelect.selectedLevelId || 1, onPickLevel || _lastSelect.onPickLevel);
     return prof;
   }
@@ -848,6 +1234,11 @@ FPS.ui = (function () {
     showLevelClear: showLevelClear,
     showEndScreen: showEndScreen,
     syncBackendUI: syncBackendUI,
+    openArmory: openArmory,
+    closeArmory: closeArmory,
+    showStalkerWarn: showStalkerWarn,
+    showBloaterBlind: showBloaterBlind,
+    clearTransientUI: clearTransientUI,
     updateWeaponLabel: updateWeaponLabel,
     updateReloadBar: updateReloadBar,
     updateCrosshair: updateCrosshair,
