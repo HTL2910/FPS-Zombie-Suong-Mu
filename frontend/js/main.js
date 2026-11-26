@@ -93,6 +93,7 @@ window.FPS = window.FPS || {};
   var _camDir = new THREE.Vector3();
   var _holdTargetId = null;
   var _holdLastMs = 0;
+  var _holdDownAtMs = 0;
   var _genTickAudioT = 0;
   var _mobileInteractDown = false;
   var _lastInteractTouchMs = 0;
@@ -100,7 +101,7 @@ window.FPS = window.FPS || {};
   var _hazToastCd = 0;
   var _waterShockTickT = 0;
   var _waterLastMs = 0;
-  var _totemAddTimer = 9.0;
+  var _totemAddTimer = 10.0;
   var _trapTickTimers = [];
   var _prevElecWater = false;
   var _gateBrokenAnnounced = false;
@@ -121,6 +122,7 @@ window.FPS = window.FPS || {};
     _mobileInteractDown = false;
     _holdTargetId = null;
     _holdLastMs = 0;
+    _holdDownAtMs = 0;
     G.interactProg = 0;
     joyTouch = null;
     joyVec.x = 0;
@@ -361,18 +363,18 @@ window.FPS = window.FPS || {};
     if (allowSpecials) {
       var r = Math.random();
       if (levelId >= 2) {
-        if (r < 0.06) return "spitter";
-        if (r < 0.12) return "bloater";
-        if (r < 0.18) return "stalker";
-      } else if (r < 0.08) {
-        return r < 0.03 ? "spitter" : (r < 0.06 ? "bloater" : "stalker");
+        if (r < 0.05) return "spitter";
+        if (r < 0.095) return "bloater";
+        if (r < 0.14) return "stalker";
+      } else if ((G.levelKills || 0) >= 4 && r < 0.045) {
+        return r < 0.015 ? "spitter" : (r < 0.03 ? "bloater" : "stalker");
       }
     }
     var r2 = Math.random();
     if (levelId >= 4 && r2 < 0.22) return "brute";
     if (levelId >= 3 && r2 < 0.16) return "brute";
-    if (levelId >= 2 && r2 < 0.48) return "runner";
-    if (levelId === 1 && r2 < 0.25) return "runner";
+    if (levelId >= 2 && r2 < 0.40) return "runner";
+    if (levelId === 1 && r2 < 0.20) return "runner";
     return "normal";
   }
 
@@ -382,12 +384,20 @@ window.FPS = window.FPS || {};
     var id = Math.max(1, Math.min(levels.length, Number(levelId) || 1));
     var levelDef = levels[id - 1];
     var prevLevel = W.currentLevel;
+    var prevState = G.state;
 
     if (G.state === "loading" || G.state === "menu" || G.state === "end" || G.state === "story") {
       resetRunState();
     } else {
       E.clearZombies();
       E.clearFireZones();
+      if (prevState === "levelclear") {
+        var stageHeal = Math.round((G.maxHp || 100) * 0.35);
+        var stageFloor = Math.round((G.maxHp || 100) * 0.65);
+        G.hp = Math.min(G.maxHp || 100, Math.max(stageFloor, (G.hp || 0) + stageHeal));
+        G.stamina = G.maxStamina || 100;
+        G.stamLocked = false;
+      }
     }
     closeArmoryModal(true);
     resetInputs();
@@ -437,13 +447,14 @@ window.FPS = window.FPS || {};
     G.stalkerCueT = 0;
     _holdTargetId = null;
     _holdLastMs = 0;
+    _holdDownAtMs = 0;
     _genTickAudioT = 0;
     _mobileInteractDown = false;
     _hazTickT = 0;
     _hazToastCd = 0;
     _waterShockTickT = 0.02;
     _waterLastMs = 0;
-    _totemAddTimer = 9.0;
+    _totemAddTimer = 10.0;
     _trapTickTimers = [];
     _prevElecWater = false;
     _gateBrokenAnnounced = false;
@@ -518,7 +529,7 @@ window.FPS = window.FPS || {};
     if (G.state !== "playing") return;
     var now = performance.now();
     if (!bypassCd && now < hurtCd) return;
-    if (!bypassCd) hurtCd = now + 350;
+    if (!bypassCd) hurtCd = now + 520;
 
     if (fromX !== undefined && fromZ !== undefined) {
       if (FPS.ui && FPS.ui.setDamageDir) {
@@ -1002,6 +1013,7 @@ window.FPS = window.FPS || {};
         if (typeof E.shove === "function") E.shove();
       }
       if (e.code === "KeyE" && !e.repeat) {
+        _holdDownAtMs = performance.now();
         var tgt = G.interactTarget || queryInteractTarget();
         if (tgt && !(tgt.holdSec > 0)) executeInteract(tgt);
       }
@@ -1021,7 +1033,20 @@ window.FPS = window.FPS || {};
       resumeGame();
     }
   });
-  document.addEventListener("keyup", function (e) { G.keys[e.code] = false; });
+  document.addEventListener("keyup", function (e) {
+    if (e.code === "KeyE" && G.state === "playing" && !G.armoryOpen && _holdTargetId && G.interactTarget && G.interactTarget.id === _holdTargetId && G.interactTarget.holdSec > 0) {
+      var nowUp = performance.now();
+      var tailSec = Math.max(0, Math.min(0.5, (nowUp - (_holdLastMs || _holdDownAtMs || nowUp)) / 1000));
+      if (G.interactProg + tailSec / G.interactTarget.holdSec >= 1) {
+        executeInteract(G.interactTarget);
+        G.interactProg = 0;
+        _holdTargetId = null;
+        _holdLastMs = 0;
+      }
+    }
+    if (e.code === "KeyE") _holdDownAtMs = 0;
+    G.keys[e.code] = false;
+  });
   document.addEventListener("mousemove", function (e) {
     if ((isLocked() || plFallback) && G.state === "playing" && !G.armoryOpen) {
       G.yaw -= e.movementX * 0.0021;
@@ -1101,14 +1126,29 @@ window.FPS = window.FPS || {};
     bInteract.addEventListener("touchstart", function (e) {
       e.preventDefault();
       _lastInteractTouchMs = performance.now();
+      _holdDownAtMs = _lastInteractTouchMs;
       _mobileInteractDown = true;
       if (G.state === "playing" && !G.armoryOpen) {
         var tgt = G.interactTarget || queryInteractTarget();
         if (tgt && !(tgt.holdSec > 0)) executeInteract(tgt);
       }
     }, { passive: false });
-    bInteract.addEventListener("touchend", function (e) { e.preventDefault(); _mobileInteractDown = false; }, { passive: false });
-    bInteract.addEventListener("touchcancel", function () { _mobileInteractDown = false; });
+    bInteract.addEventListener("touchend", function (e) {
+      e.preventDefault();
+      if (_mobileInteractDown && G.state === "playing" && !G.armoryOpen && _holdTargetId && G.interactTarget && G.interactTarget.id === _holdTargetId && G.interactTarget.holdSec > 0) {
+        var nowUp = performance.now();
+        var tailSec = Math.max(0, Math.min(0.5, (nowUp - (_holdLastMs || _holdDownAtMs || nowUp)) / 1000));
+        if (G.interactProg + tailSec / G.interactTarget.holdSec >= 1) {
+          executeInteract(G.interactTarget);
+          G.interactProg = 0;
+          _holdTargetId = null;
+          _holdLastMs = 0;
+        }
+      }
+      _mobileInteractDown = false;
+      _holdDownAtMs = 0;
+    }, { passive: false });
+    bInteract.addEventListener("touchcancel", function () { _mobileInteractDown = false; _holdDownAtMs = 0; });
     bInteract.addEventListener("click", function (e) {
       e.preventDefault();
       if (performance.now() - _lastInteractTouchMs < 400) return;
@@ -1299,17 +1339,17 @@ window.FPS = window.FPS || {};
         var runStep = wantRun && ml > 0.01 && !G.stamLocked && G.stamina > 0;
         if (runStep) {
           anyRun = true;
-          G.stamina = Math.max(0, G.stamina - 28 * mDt);
+          G.stamina = Math.max(0, G.stamina - 24 * mDt);
           if (G.stamina <= 0) {
             G.stamina = 0;
             G.stamLocked = true;
           }
         } else if ((G.shoveT || 0) <= 0 && (G.shoveRegenLockT || 0) <= 0) {
-          G.stamina = Math.min(G.maxStamina, G.stamina + (ml > 0.01 ? 16 : 24) * mDt);
+          G.stamina = Math.min(G.maxStamina, G.stamina + (ml > 0.01 ? 20 : 30) * mDt);
           if (G.stamLocked && G.stamina > G.maxStamina * 0.15) G.stamLocked = false;
         }
         if (ml > 0.01) {
-          var stepSpd = (runStep ? 7.4 : 4.4) * G.speedMul * hazMul * relicMul;
+          var stepSpd = (runStep ? 7.9 : 4.8) * G.speedMul * hazMul * relicMul;
           var stepFootY = Math.max(0, playerPos.y - 1.7);
           playerPos.x += mx * stepSpd * mDt;
           playerPos.z += mz * stepSpd * mDt;
@@ -1371,7 +1411,7 @@ window.FPS = window.FPS || {};
         if (G.interactTarget && G.interactTarget.holdSec > 0 && (G.keys.KeyE || _mobileInteractDown)) {
           if (_holdTargetId !== G.interactTarget.id) {
             _holdTargetId = G.interactTarget.id;
-            _holdLastMs = now;
+            _holdLastMs = (_holdDownAtMs > 0 && now - _holdDownAtMs < 600) ? _holdDownAtMs : now;
             G.interactProg = 0;
           }
           var holdStepSec = Math.max(realDt, Math.min(0.5, (now - (_holdLastMs || now)) / 1000));
@@ -1545,9 +1585,9 @@ window.FPS = window.FPS || {};
           _totemsBrokenCount = tBroken;
         }
         if (tAliveList.length > 0) {
-          _totemAddTimer -= dt;
+          _totemAddTimer -= realDt;
           if (_totemAddTimer <= 0) {
-            _totemAddTimer = 9.0;
+            _totemAddTimer = 10.0;
             var curAliveZ = 0;
             for (var azi = 0; azi < E.zombies.length; azi++) if (!E.zombies[azi].dead) curAliveZ++;
             if (curAliveZ < (levelDef.maxAlive || 12) + 2) {
@@ -1631,15 +1671,15 @@ window.FPS = window.FPS || {};
       var baseMax = levelDef.maxAlive || 12;
       var maxAllowed = G.portalUnlocked
         ? Math.max(4, Math.floor(baseMax * 0.45))
-        : (G.directorPhase === "surge" ? Math.min(16, baseMax + (dirCfg.surgeMaxAliveBonus || 4)) : Math.max(4, Math.floor(baseMax * 0.7)));
+        : (G.directorPhase === "surge" ? Math.min(16, baseMax + (dirCfg.surgeMaxAliveBonus !== undefined ? dirCfg.surgeMaxAliveBonus : 2)) : Math.max(4, Math.floor(baseMax * 0.7)));
       if (aliveCount < maxAllowed) {
         spawnTimer -= dt;
         if (spawnTimer <= 0) {
-          var baseInterval = Math.max(0.65, 1.55 - levelDef.id * 0.14);
-          if (G.panicT > 0) spawnTimer = dirCfg.panicSpawnInterval || 0.45;
+          var baseInterval = Math.max(0.85, 1.85 - levelDef.id * 0.16);
+          if (G.panicT > 0) spawnTimer = dirCfg.panicSpawnInterval || 0.65;
           else if (G.portalUnlocked) spawnTimer = 2.2;
           else if (G.directorPhase === "breather") spawnTimer = baseInterval * (dirCfg.breatherSpawnMul || 2.2);
-          else spawnTimer = baseInterval * (dirCfg.surgeSpawnMul || 0.58);
+          else spawnTimer = baseInterval * (dirCfg.surgeSpawnMul || 0.72);
           E.spawnZombie(pickLevelZombieType(levelDef.id, true));
         }
       }

@@ -1169,12 +1169,17 @@ FPS.ui = (function () {
       return;
     }
     var sec = (t === undefined || t === null || !Number.isFinite(Number(t))) ? 1.8 : Number(t);
+    bv.style.transition = "none";
     bv.style.opacity = "0.92";
+    void bv.offsetHeight;
     var durMs = Math.max(200, Math.round(sec * 1000));
     _blindTimer = setTimeout(function () {
       _blindTimer = null;
       var el = _el("blackoutVeil");
-      if (el) el.style.opacity = "0";
+      if (el) {
+        el.style.transition = "opacity .25s";
+        el.style.opacity = "0";
+      }
     }, durMs);
   }
 

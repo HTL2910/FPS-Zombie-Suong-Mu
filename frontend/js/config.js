@@ -390,10 +390,10 @@ FPS.t = function (k) {
 };
 
 FPS.WEAPONS = {
-  pistol: { name: "Pistol", dmg: 34, rate: 300, mag: 12, reserve: Infinity, reload: 950, pellets: 1, spread: 0.006, auto: false, recoil: 0.016, kick: 0.05 },
-  shotgun: { name: "Shotgun", dmg: 15, rate: 880, mag: 6, reserve: 36, reload: 1500, pellets: 8, spread: 0.055, auto: false, recoil: 0.055, kick: 0.16 },
-  rifle: { name: "Rifle", dmg: 23, rate: 115, mag: 30, reserve: 150, reload: 1350, pellets: 1, spread: 0.02, auto: true, recoil: 0.009, kick: 0.03 },
-  thuanthien: { name: "Thuận Thiên Kiếm", dmg: 95, rate: 420, mag: 1, reserve: Infinity, reload: 100, pellets: 1, spread: 0, auto: false, recoil: 0.008, kick: 0.06, melee: true }
+  pistol: { name: "Pistol", dmg: 38, rate: 260, mag: 12, reserve: Infinity, reload: 820, pellets: 1, spread: 0.006, auto: false, recoil: 0.016, kick: 0.05 },
+  shotgun: { name: "Shotgun", dmg: 17, rate: 760, mag: 6, reserve: 48, reload: 1300, pellets: 8, spread: 0.055, auto: false, recoil: 0.055, kick: 0.16 },
+  rifle: { name: "Rifle", dmg: 26, rate: 108, mag: 30, reserve: 180, reload: 1200, pellets: 1, spread: 0.02, auto: true, recoil: 0.009, kick: 0.03 },
+  thuanthien: { name: "Thuận Thiên Kiếm", dmg: 110, rate: 380, mag: 1, reserve: Infinity, reload: 100, pellets: 1, spread: 0, auto: false, recoil: 0.008, kick: 0.06, melee: true }
 };
 
 FPS.PERKS = [
@@ -434,11 +434,11 @@ FPS.ENV_TINT = {
 FPS.ZOMBIE_TYPES = {
   normal: {
     rig: "zombie",
-    hp: 62,
-    spd: 2.25,
-    dmg: 11,
+    hp: 58,
+    spd: 2.20,
+    dmg: 9,
     score: 100,
-    scrap: 10,
+    scrap: 14,
     hitR: 0.56,
     scale: 1.0,
     special: null,
@@ -448,11 +448,11 @@ FPS.ZOMBIE_TYPES = {
   },
   runner: {
     rig: "skeleton",
-    hp: 44,
-    spd: 4.35,
-    dmg: 8,
+    hp: 38,
+    spd: 3.85,
+    dmg: 7,
     score: 150,
-    scrap: 14,
+    scrap: 18,
     hitR: 0.53,
     scale: 0.95,
     special: null,
@@ -462,11 +462,11 @@ FPS.ZOMBIE_TYPES = {
   },
   brute: {
     rig: "golem",
-    hp: 230,
-    spd: 1.60,
-    dmg: 22,
+    hp: 210,
+    spd: 1.55,
+    dmg: 18,
     score: 300,
-    scrap: 28,
+    scrap: 36,
     hitR: 0.84,
     scale: 1.5,
     special: null,
@@ -476,11 +476,11 @@ FPS.ZOMBIE_TYPES = {
   },
   spitter: {
     rig: "skeleton",
-    hp: 78,
-    spd: 2.45,
-    dmg: 12,
+    hp: 68,
+    spd: 2.35,
+    dmg: 10,
     score: 260,
-    scrap: 26,
+    scrap: 32,
     hitR: 0.60,
     scale: 1.08,
     special: "spit",
@@ -489,19 +489,19 @@ FPS.ZOMBIE_TYPES = {
     isBoss: false,
     spitRange: 18.0,
     spitMinRange: 4.5,
-    spitCd: 4.2,
+    spitCd: 5.2,
     acidDur: 5.0,
-    acidRadius: 2.4,
-    acidDps: 14,
+    acidRadius: 2.1,
+    acidDps: 10,
     acidTick: 0.5
   },
   bloater: {
     rig: "troll",
-    hp: 165,
-    spd: 1.85,
-    dmg: 18,
+    hp: 140,
+    spd: 1.75,
+    dmg: 15,
     score: 340,
-    scrap: 32,
+    scrap: 38,
     hitR: 0.82,
     scale: 1.38,
     special: "explode",
@@ -509,18 +509,18 @@ FPS.ZOMBIE_TYPES = {
     opacity: 1.0,
     isBoss: false,
     boomRadius: 5.5,
-    boomDmgPlayer: 28,
-    boomDmgZombie: 160,
+    boomDmgPlayer: 20,
+    boomDmgZombie: 180,
     boomKnockback: 7.5,
-    blindDur: 1.8
+    blindDur: 1.3
   },
   stalker: {
     rig: "ghost",
-    hp: 85,
-    spd: 3.75,
+    hp: 70,
+    spd: 3.45,
     dmg: 20,
     score: 320,
-    scrap: 30,
+    scrap: 36,
     hitR: 0.58,
     scale: 1.05,
     special: "pounce",
@@ -531,15 +531,15 @@ FPS.ZOMBIE_TYPES = {
     screamTelegraphSec: 1.5,
     pounceRange: 7.5,
     pounceSpdMul: 1.85,
-    pounceCd: 5.5
+    pounceCd: 6.5
   },
   orcking: {
     rig: "orcking",
-    hp: 980,
+    hp: 860,
     spd: 2.05,
-    dmg: 28,
+    dmg: 22,
     score: 1500,
-    scrap: 120,
+    scrap: 140,
     hitR: 1.23,
     scale: 2.2,
     special: "boss",
@@ -549,11 +549,11 @@ FPS.ZOMBIE_TYPES = {
   },
   minotaur: {
     rig: "minotaur",
-    hp: 1450,
+    hp: 1250,
     spd: 2.20,
-    dmg: 34,
+    dmg: 26,
     score: 2500,
-    scrap: 200,
+    scrap: 220,
     hitR: 1.23,
     scale: 2.2,
     special: "boss",
@@ -567,17 +567,17 @@ FPS.UPGRADES = {
   unlockCosts: {
     pistol: 0,
     thuanthien: 0,
-    shotgun: 120,
-    rifle: 180
+    shotgun: 85,
+    rifle: 135
   },
   maxTier: 3,
   tiers: {
     1: { tier: 1, label: "Mk.I",   cost: 0,   dmgMul: 1.00, magBonus: 0.00, rateMul: 1.00, fireAmmo: false },
-    2: { tier: 2, label: "Mk.II",  cost: 90,  dmgMul: 1.28, magBonus: 0.25, rateMul: 1.12, fireAmmo: false },
-    3: { tier: 3, label: "Mk.III", cost: 160, dmgMul: 1.60, magBonus: 0.50, rateMul: 1.24, fireAmmo: true }
+    2: { tier: 2, label: "Mk.II",  cost: 75,  dmgMul: 1.32, magBonus: 0.25, rateMul: 1.14, fireAmmo: false },
+    3: { tier: 3, label: "Mk.III", cost: 130, dmgMul: 1.68, magBonus: 0.50, rateMul: 1.26, fireAmmo: true }
   },
   fireAmmo: {
-    dps: 14,
+    dps: 18,
     duration: 3.0,
     tick: 0.5,
     colorHex: 0xff6a1a
@@ -586,13 +586,13 @@ FPS.UPGRADES = {
 
 FPS.SCRAP = {
   starting: 0,
-  headshotBonus: 4,
-  barrelKillBonus: 5,
-  gateBonus: 30,
-  genBonus: 40,
-  relicBonus: 35,
-  totemBonus: 45,
-  comboWindowSec: 6.0,
+  headshotBonus: 6,
+  barrelKillBonus: 8,
+  gateBonus: 40,
+  genBonus: 50,
+  relicBonus: 45,
+  totemBonus: 55,
+  comboWindowSec: 7.0,
   comboMinMult: 1.0,
   comboStepMult: 0.5,
   comboMaxMult: 3.0
@@ -604,9 +604,9 @@ FPS.SHOVE = {
   staminaCost: 22,
   cd: 0.65,
   animDur: 0.28,
-  knockback: 4.2,
-  staggerSec: 1.15,
-  dmg: 12,
+  knockback: 4.8,
+  staggerSec: 1.35,
+  dmg: 18,
   bossKnockbackMul: 0.25,
   bossStaggerMul: 0.35
 };
@@ -614,18 +614,18 @@ FPS.SHOVE = {
 FPS.TRAPS = {
   interactRange: 3.0,
   cd: 25,
-  dur: 6.0,
+  dur: 7.5,
   tick: 0.5,
-  electric: { dps: 48, waterDps: 60, slowMul: 0.45, colorHex: 0x38d9ff },
-  fire: { dps: 52, slowMul: 0.75, colorHex: 0xff6a1a }
+  electric: { dps: 60, waterDps: 75, slowMul: 0.45, colorHex: 0x38d9ff },
+  fire: { dps: 65, slowMul: 0.75, colorHex: 0xff6a1a }
 };
 
 FPS.BARRICADES = {
   interactRange: 3.0,
   defaultHp: 180,
-  zombieBashCd: 0.85,
+  zombieBashCd: 0.72,
   zombieBashDmg: 36,
-  repairCost: 20,
+  repairCost: 15,
   repairHoldSec: 1.2
 };
 
@@ -634,11 +634,11 @@ FPS.DIRECTOR = {
   surgeDurMax: 20,
   breatherDurMin: 6,
   breatherDurMax: 8,
-  surgeSpawnMul: 0.58,
-  surgeMaxAliveBonus: 4,
+  surgeSpawnMul: 0.72,
+  surgeMaxAliveBonus: 2,
   breatherSpawnMul: 2.2,
   panicHordeDur: 10,
-  panicSpawnInterval: 0.45
+  panicSpawnInterval: 0.65
 };
 
 FPS.HAZARDS = {
@@ -648,5 +648,5 @@ FPS.HAZARDS = {
   holdoutSec: 25,
   totemArmorReduction: 0.65,
   water: { speedMul: 0.78 },
-  toxic: { speedMul: 0.82, dps: 6, tick: 0.5 }
+  toxic: { speedMul: 0.82, dps: 5, tick: 0.5 }
 };

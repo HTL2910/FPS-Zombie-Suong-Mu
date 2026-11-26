@@ -18,7 +18,7 @@ FPS.LEVELS = [
     killQuota: 14,
     bossType: null,
     extractHoldSec: 2.5,
-    maxAlive: 12,
+    maxAlive: 9,
     platforms: [
       { id: "plat_m1_loft", x: 14.5, z: 2.0, w: 6.0, d: 7.0, yTop: 2.1, rampSide: "s", rampLen: 4.6, mat: "wood", ry: 0.12, underpass: true }
     ],
@@ -69,7 +69,7 @@ FPS.LEVELS = [
       { key: "cobble", x: 9.0, z: -7.0, w: 3.4, rotY: -0.4, coll: null },
       { key: "cobble", x: 14.0, z: -15.5, w: 3.4, rotY: 0, coll: null }
     ],
-    objective: { type: "gate", x: 14.0, z: -13.0, y: 0, w: 3.8, h: 3.2, d: 0.7, ry: 0, hp: 350 },
+    objective: { type: "gate", x: 14.0, z: -13.0, y: 0, w: 3.8, h: 3.2, d: 0.7, ry: 0, hp: 260 },
     armory: { x: -26.5, z: 16.0, y: 0, rotY: 0 },
     anvil: { x: -6.5, z: 24.5, y: 0, rotY: 0 },
     traps: [
@@ -129,10 +129,10 @@ FPS.LEVELS = [
     groundHex: 0x4f4539,
     playerSpawn: { x: -31, z: 13, yaw: -1.35 },
     extractPos: { x: 29, z: -12, y: 0, r: 4.0 },
-    killQuota: 22,
+    killQuota: 20,
     bossType: null,
     extractHoldSec: 2.5,
-    maxAlive: 14,
+    maxAlive: 11,
     platforms: [
       { id: "plat_m2_catwalk", x: 3.0, z: -14.0, w: 12.0, d: 3.8, yTop: 2.2, rampSide: "w", rampLen: 5.0, mat: "wood", ry: -0.18, underpass: true },
       { id: "plat_m2_east", x: 16.0, z: 10.0, w: 6.2, d: 5.8, yTop: 2.1, rampSide: "s", rampLen: 4.6, mat: "wood", ry: 0.22, underpass: true }
@@ -250,10 +250,10 @@ FPS.LEVELS = [
     groundHex: 0x354437,
     playerSpawn: { x: -36, z: 35, yaw: -0.78 },
     extractPos: { x: 31, z: -31, y: 1.8, r: 4.0 },
-    killQuota: 30,
+    killQuota: 26,
     bossType: null,
     extractHoldSec: 2.5,
-    maxAlive: 16,
+    maxAlive: 13,
     platforms: [
       { id: "plat_m3_lookout", x: 9.4, z: -4.0, w: 6.6, d: 6.6, yTop: 2.6, rampSides: ["s", "w"], rampLen: 4.5, mat: "wood", ry: 0.25, underpass: true },
       { id: "plat_m3_ridge", x: -19.0, z: -16.0, w: 6.4, d: 5.4, yTop: 2.1, rampSide: "e", rampLen: 4.8, mat: "stone", ry: -0.28, underpass: true },
@@ -374,10 +374,10 @@ FPS.LEVELS = [
     groundHex: 0x3d3a44,
     playerSpawn: { x: -10, z: 43, yaw: -0.15 },
     extractPos: { x: 8, z: -42, y: 0, r: 4.0 },
-    killQuota: 36,
+    killQuota: 32,
     bossType: "orcking",
     extractHoldSec: 3.0,
-    maxAlive: 16,
+    maxAlive: 14,
     platforms: [
       { id: "plat_m4_crypt", x: 16.8, z: -4.0, w: 8.5, d: 7.5, yTop: 2.3, rampSides: ["s", "w"], rampLen: 4.4, mat: "stone", ry: 0.2, underpass: true },
       { id: "plat_m4_west", x: -23.0, z: 8.0, w: 6.8, d: 6.0, yTop: 2.1, rampSide: "e", rampLen: 4.8, mat: "brick", ry: -0.25, underpass: true }
@@ -432,9 +432,9 @@ FPS.LEVELS = [
     objective: {
       type: "totems",
       items: [
-        { id: "totem_west", x: -23.0, z: 8.0, y: 2.1, hp: 260 },
-        { id: "totem_crypt", x: 16.8, z: -4.0, y: 2.3, hp: 260 },
-        { id: "totem_north", x: -7.0, z: -23.0, y: 0, hp: 260 }
+        { id: "totem_west", x: -23.0, z: 8.0, y: 2.1, hp: 220 },
+        { id: "totem_crypt", x: 16.8, z: -4.0, y: 2.3, hp: 220 },
+        { id: "totem_north", x: -7.0, z: -23.0, y: 0, hp: 220 }
       ]
     },
     armory: { x: -19.0, z: 40.0, y: 0, rotY: 0 },
@@ -505,10 +505,10 @@ FPS.LEVELS = [
     groundHex: 0x3a3437,
     playerSpawn: { x: -14, z: 46, yaw: 0.12 },
     extractPos: { x: 5, z: -25.5, y: 2.1, r: 4.2 },
-    killQuota: 45,
+    killQuota: 40,
     bossType: "minotaur",
     extractHoldSec: 3.0,
-    maxAlive: 18,
+    maxAlive: 16,
     platforms: [
       { id: "plat_m5_pier_w", x: -7.5, z: -11.5, w: 5.5, d: 23.0, yTop: 2.1, rampSide: "s", rampLen: 5.0, mat: "wood", ry: 0, underpass: true },
       { id: "plat_m5_pier_e", x: 11.0, z: -11.5, w: 5.5, d: 23.0, yTop: 2.1, rampSide: "s", rampLen: 5.0, mat: "wood", ry: 0, underpass: true },

@@ -1328,7 +1328,7 @@ FPS.entities = (function () {
   function triggerBossRoar(z) {
     if (!z || z.dead) return;
     var G = getG();
-    z.roarT = 10;
+    z.roarT = 13;
     if (G) G.shake = Math.min(0.6, (G.shake || 0) + 0.36);
     var df = document.getElementById("dmgFlash");
     if (df) {
@@ -1681,7 +1681,7 @@ FPS.entities = (function () {
         }
         if (!bBlocked) {
           var pDist = Math.sqrt(pd2);
-          var selfDmg = Math.round(6 + 16 * (1 - pDist / 2.5));
+          var selfDmg = Math.min(20, Math.round(5 + 14 * (1 - pDist / 2.5)));
           FPS.game.hurtPlayer(selfDmg, barrel.x, barrel.z);
         }
       }
@@ -2204,7 +2204,7 @@ FPS.entities = (function () {
       if (bw) bw.classList.add("hidden");
       if (FPS.ui && FPS.ui.showToast) FPS.ui.showToast("☠ " + FPS.t("bossSlain"), 2400);
     }
-    if (Math.random() < 0.22) dropPickup(z.group.position.x, z.group.position.z, baseY);
+    if (Math.random() < 0.28) dropPickup(z.group.position.x, z.group.position.z, baseY);
     if (FPS.ui && FPS.ui.updateHUD) FPS.ui.updateHUD();
   }
 
@@ -2752,10 +2752,11 @@ FPS.entities = (function () {
   }
 
   // Obstacle-steering Zombie AI + Specials + Verticality + Barricade Bashing
-  function updateZombies(dt, playing, frameNo) {
+  function updateZombies(dt, playing, frameNo, realDt) {
     var G = getG();
     var playerPos = getP();
     if (!playerPos) return;
+    var timerDt = (realDt && realDt > 0) ? realDt : dt;
     var pFootY = Math.max(0, playerPos.y - 1.7);
     var pFwdX = G ? -Math.sin(G.yaw) : 0;
     var pFwdZ = G ? -Math.cos(G.yaw) : -1;
@@ -2807,8 +2808,8 @@ FPS.entities = (function () {
       // Incendiary Mk.III fireAmmo DoT
       if (z.burnT > 0) {
         var faCfg = (FPS.UPGRADES && FPS.UPGRADES.fireAmmo) || {};
-        z.burnT -= dt;
-        z.burnTickT -= dt;
+        z.burnT -= timerDt;
+        z.burnTickT -= timerDt;
         if (z.burnTickT <= 0) {
           z.burnTickT += (faCfg.tick || 0.5);
           var bDmg = (faCfg.dps || 14) * (faCfg.tick || 0.5);
@@ -2847,7 +2848,7 @@ FPS.entities = (function () {
         }
       } else if (z.type === "spitter" && z.spawnT <= 0) {
         var spDef = (FPS.ZOMBIE_TYPES && FPS.ZOMBIE_TYPES.spitter) || {};
-        z.spitCd -= dt;
+        z.spitCd -= timerDt;
         if (z.hitT <= 0 && dist <= (spDef.spitRange || 18.0) && dist >= (spDef.spitMinRange || 4.5) && z.spitCd <= 0) {
           var sOrig = _sv1.set(gp.x, (gp.y || 0) + 1.45, gp.z);
           var sTgt = _sv2.set(playerPos.x, playerPos.y - 0.15, playerPos.z);
@@ -2867,7 +2868,7 @@ FPS.entities = (function () {
         }
       } else if (z.type === "stalker" && z.spawnT <= 0) {
         var stDef2 = (FPS.ZOMBIE_TYPES && FPS.ZOMBIE_TYPES.stalker) || {};
-        if (z.pounceCd > 0) z.pounceCd -= dt;
+        if (z.pounceCd > 0) z.pounceCd -= timerDt;
         if (z.pounceState === "prowl") {
           if (dist <= (stDef2.pounceRange || 7.5) && z.pounceCd <= 0 && z.hitT <= 0) {
             z.pounceState = "telegraph";
@@ -2884,14 +2885,14 @@ FPS.entities = (function () {
             }
           }
         } else if (z.pounceState === "telegraph") {
-          z.pounceT -= dt;
+          z.pounceT -= timerDt;
           speedMul *= 0.32;
           if (z.pounceT <= 0) {
             z.pounceState = "pounce";
             z.pounceT = 0.65;
           }
         } else if (z.pounceState === "pounce") {
-          z.pounceT -= dt;
+          z.pounceT -= timerDt;
           speedMul *= (stDef2.pounceSpdMul || 1.85);
           if (dist < 1.55 * sc && Math.abs((gp.y || 0) - pFootY) <= 1.65) {
             if (FPS.game && FPS.game.hurtPlayer) FPS.game.hurtPlayer(z.dmg, gp.x, gp.z);
@@ -2906,7 +2907,7 @@ FPS.entities = (function () {
         }
       }
 
-      if (z.bashCd > 0) z.bashCd -= dt;
+      if (z.bashCd > 0) z.bashCd -= timerDt;
       var bashingBarricade = false;
       if (z.spawnT <= 0 && (dist > 1.25 * sc * 0.8 || Math.abs(pFootY - z.baseY) > 0.7)) {
         var prevX = gp.x, prevZ = gp.z;
@@ -2930,7 +2931,7 @@ FPS.entities = (function () {
         var keepPlat = _navKeepPlat;
         var wasSteerBias = z.steerBias > 0;
 
-        var step = z.speed * speedMul * dt;
+        var step = Math.min(0.48, z.speed * speedMul * Math.min(timerDt, 0.22));
         if (wasSteerBias) {
           z.steerBias = Math.max(0, z.steerBias - dt);
           var bx = nxP * 0.35 + z.lastTangX * 0.65;
@@ -2958,7 +2959,8 @@ FPS.entities = (function () {
           moveDirZ /= brL;
           if (z.bashCd <= 0) {
             var bCfg = FPS.BARRICADES || {};
-            z.bashCd = bCfg.zombieBashCd || 0.85;
+            var bCdVal = bCfg.zombieBashCd || 0.85;
+            z.bashCd = Math.max(bCdVal * 0.5, bCdVal + z.bashCd);
             z.atkT = 0.32;
             var bashDmg = bCfg.zombieBashDmg || 36;
             if (W.damageBarricade) {
@@ -3085,16 +3087,16 @@ FPS.entities = (function () {
         barCount++;
       }
 
-      if (z.graceT > 0) z.graceT -= dt;
-      if (z.atkCd > 0) z.atkCd -= dt;
+      if (z.graceT > 0) z.graceT -= timerDt;
+      if (z.atkCd > 0) z.atkCd -= timerDt;
       if (!bashingBarricade && z.spawnT <= 0 && z.graceT <= 0 && dist < 1.45 * sc && Math.abs((gp.y || 0) - pFootY) <= 1.65 && z.atkCd <= 0) {
-        z.atkCd = 0.85;
+        z.atkCd = 1.05;
         z.atkT = 0.32;
         if (FPS.game && FPS.game.hurtPlayer) FPS.game.hurtPlayer(z.dmg, gp.x, gp.z);
       }
 
       if (z.isBoss && z.spawnT <= 0) {
-        z.roarT -= dt;
+        z.roarT -= timerDt;
         if (z.roarT <= 0) triggerBossRoar(z);
       }
       if (z.isBoss && bossRef === z) {
@@ -3204,7 +3206,7 @@ FPS.entities = (function () {
         var pkx = pk.g.position.x - playerPos.x, pkz = pk.g.position.z - playerPos.z;
         if (pkx * pkx + pkz * pkz < 1.96 && Math.abs((pk.baseY || 0) - pFootY) <= 1.35) {
           if (pk.kind === "med" && G.hp < G.maxHp) {
-            G.hp = Math.min(G.maxHp, G.hp + 35);
+            G.hp = Math.min(G.maxHp, G.hp + 40);
             if (FPS.audio && FPS.audio.sfxPickup) FPS.audio.sfxPickup();
             if (FPS.ui && FPS.ui.showToast) FPS.ui.showToast("✚ " + FPS.t("pickHeal"), 1600);
             W.scene.remove(pk.g);
@@ -3223,7 +3225,7 @@ FPS.entities = (function () {
       }
     }
 
-    updateZombies(dt, playing, frameNo);
+    updateZombies(dt, playing, frameNo, realDt);
 
     // Pooled FX ticks
     if (tracers.length > 0) {
