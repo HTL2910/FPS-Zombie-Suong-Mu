@@ -1,131 +1,98 @@
-# FPS Zombie Sương Mù — Source v6.5
+# FPS Zombie Sương Mù — Dead Fog (v9.0)
 
-Version: **v6.5** (build stamp "BUILD v6.5" in the menu and in-game HUD)
+> **Play Online in Browser (Itch.io):** https://hathanhlong2910.itch.io/fps-zombie
 
-Build layout: `index.html` plus external model/font folders: `assets/zb/` (7 zombie GLBs), `assets/env/` (25 environment GLBs), `assets/weapons/` (`wp_thuanthien.glb`, `wp_excalibur.glb`), and `assets/fonts/` (`BeVietnamPro`). **The game must keep `assets/` next to `index.html`** —
-at runtime it fetches `assets/zb/zb_<name>.glb`, `assets/env/env_<name>.glb`, and `assets/weapons/wp_<name>.glb`. Serve the whole folder over HTTP rather
-than copying `index.html` alone. Bilingual VI/EN, mobile touch controls
-included.
+**FPS Zombie Sương Mù (Dead Fog)** is a bilingual (**VI / EN**) 3D WebGL tactical extraction survival FPS built with Three.js. Set in mist-shrouded **Làng Hạ Đồn** at 02:14 AM, you fight through 5 remade multi-height arenas, complete dynamic stage objectives, upgrade weapons with Scrap, survive special infected & bosses, and uncover a 5-act mystery dossier before dawn.
 
-## What changed in v6.5 (Thuận Thiên Divine Sword & Extra Brute Monsters)
+## Highlights in v9.0
 
-- **Slot 4 Divine Sword (`thuanthien`):** Integrated 3D `wp_thuanthien.glb` ("Thuận Thiên Kiếm" from Bộ Kiếm Thần Khí) into the viewmodel pass (`gunScene`) with golden blade light, slash swing animation, and wide 5.8 m melee cleave arc (`Digit4` or mobile `SÚNG` cycle).
-- **Expanded Brute Roster (`assets/zb/`):** Added `zb_troll.glb` (`warrior-troll`) and `zb_minotaur.glb` (`minotaur-warrior`) rotating alongside `zb_golem.glb` on Wave 3+.
-- **Vietnamese Typography:** Bundled `BeVietnamPro-Regular.ttf` and `BeVietnamPro-Bold.ttf` in `assets/fonts/`.
-- **HUD Polish:** Adjusted `#hudBR` positioning clear of `#muteBtn` and suppressed gun low-ammo warnings while wielding melee weapons.
+### 5 Multi-Level Tactical Maps & Dynamic Objectives
+1. **Stage 1 — Ngõ Cụt Sương Mù (`Cổng Làng Cổ`):** Asymmetric alleyways, timber loft (`underpass: true`), and destructible **Wooden Barricade Gate** blocking extraction.
+2. **Stage 2 — Chợ Đêm (`Chợ Đêm Bỏ Hoang`):** Open-roof angled market stalls, elevated catwalk, and **2 Power Generators (`Hold E 2s`)** that flood the market with light and trigger a **Panic Horde**.
+3. **Stage 3 — Rừng Thông (`Sân Đình Linh Miếu`):** Winding forest ridges, central shrine (`yTop: 1.8m`), and **2 Linh Relics** imposing a carry sprint penalty.
+4. **Stage 4 — Nghĩa Trang (`Nghĩa Trang Sương Mù`):** Crypt platform, toxic swamp pools, **3 Cursed Totems** shielding the **Orc Grave Lord**, and an **Armory/Anvil** forward cache.
+5. **Stage 5 — Bến Sông Ma (`Bến Tàu Tận Thế`):** Riverfront fortress, conductive shallow-water 2-branch pier, **Signal Flare**, **25s Holdout** against the **Minotaur**, and boat exfil.
 
-## What changed in v6.4 (new Meshy library: characters + map rebuilt)
+### Special Infected & Bosses
+- **Acid Spitter** (`zb_skeleton.glb`) — launches ranged acid puddles that deal area damage.
+- **Bloater** (`zb_troll.glb`) — detonates in a toxic blast and temporarily blinds vision.
+- **Phantom Stalker** (`zb_ghost.glb`) — shadowswitch dash & ambush pounce with UI warning pulse.
+- **Bosses:** **Orc Grave Lord** (`zb_orcking.glb`, totem-armored on Stage 4) & **Minotaur** (`zb_minotaur.glb`, Stage 5 holdout).
 
-Rebuilt on the player's report that the previous build still showed
-white/material-less models, an old-looking map, and a mouse that did not
-hide on click. All characters and the whole environment now come from the
-Meshy model library collected on 2026-11-21 (verified from inside the
-files: embedded textures present, animation clips read from the GLBs),
-packed with gltfpack (meshopt + WebP). The 3DLabTools environment set and
-the old Meshy zombie payloads are gone.
+### Combat, Economy & Systems
+- **Weapons (`1`–`4`):** `Pistol`, unlockable `Shotgun`, unlockable `Rifle`, and `Thuận Thiên Kiếm` (`wp_thuanthien.glb`) 3D divine cleave blade (`5.8m` arc).
+- **Scrap Economy & Field Armory (`E`):** Earn Scrap from kills, **Headshot Streak (`x1.0`–`x3.0`)**, and red barrel chains. Unlock `Shotgun` / `Rifle` at the Field Armory and upgrade weapons from **Mk.I → Mk.III (Incendiary DoT)** at the Upgrade Anvil.
+- **Quick Melee Shove (`V` / Right-Click):** Emergency knockback push (`22` stamina) to break grapples.
+- **Tactical Environment:** Electric & Fire Traps (conductive through shallow water), destructible/repairable **Wooden Barricades**, **Holy Flare (`G`)**, **AI Director (`Surge ↔ Breather`)**, instanced decals (`DECAL_MAX=128`), `41` WebAudio cues, and `0` dynamic `THREE.PointLight`s for smooth 60 FPS WebGL rendering.
+- **Desktop + Mobile (`390×844`):** Pointer-lock mouse look (plus sandbox iframe fallback) and responsive touch controls (dual-stick + dedicated `#btnShove` & `#btnInteract`).
 
-### Characters (assets/zb/)
+### 5-Act Story — *Làng Hạ Đồn: Hồ Sơ Đêm Sương Mù*
+- **In-Game Dossier (`#storyScr`):** 5 chapters & 5 collectible field notes (`note1`–`note5`) saved persistently, Linh live radio beats during objectives, 5 stage-specific defeat epilogues, and a True Ending upon Stage 5 boat extraction.
 
-- **Normal walker:** `zb_zombie` (Walking / Stumble_Walk / Unsteady_Walk,
-  attack = Left_Hook_from_Guard), in rotation with `zb_ghost`
-  (Walking / Running, Idle_4 / Idle_12).
-- **Runner:** `zb_skeleton` (Running; Lean_Forward_Sprint on high waves).
-  No attack clip exists in the file — it lunges with its run cycle.
-- **Brute:** `zb_golem` (Slow_Orc_Walk, attack = Skill_01, stagger =
-  Mummy_Stagger), scaled large.
-- **Boss (waves 5 & 10):** `zb_orcking` (Walking / Running, Attack,
-  specials Weapon_Combo / Axe_Spin_Attack), scaled largest.
-- None of the library models carries a dying clip, so death is
-  code-driven: the body falls, sinks and fades — no T-pose corpses.
-- The v6.2 material guard also covers the new zombies; runtime self-check
-  `window.__zbTexOk()` reports per-model map bound + image loaded
-  (companion to `__gunTexOk()` for the guns, which are unchanged).
-
-### Map (assets/env/, 25 models)
-
-- **South — Graveyard (spawn):** dungeon gate with wooden door, stepped
-  stone walls, ancient pillars, hell torches, stone stairs, rock piles,
-  cobblestone path; procedural tombstones kept.
-- **North — Ruined Church:** gothic house as the ruined church hall,
-  wooden watchtower; the code-built bell tower + glowing cross (boss
-  arena) kept; torches and lanterns.
-- **East — Night Market:** hand carts, a horse cart, crate stacks,
-  barrels, tavern tables, a treasure chest, a windmill at the far edge,
-  lantern posts.
-- **West — Fog Pine Forest:** GLB pine trees, dead trees, oaks, bushes,
-  mushroom clusters, rocks.
-- **Center — Crossroads:** wishing well centerpiece, Japanese pagoda,
-  cobblestone plaza, amber lanterns, a second house at the NE corner,
-  stairs at the pagoda.
-
-### Pointer lock — root cause found and fixed
-
-The lock request was sent with an options argument
-(`{unadjustedMovement: true}`); on platforms that do not support it the
-request rejects with NotSupportedError and the cursor never hid. The game
-now retries the request without options, so pointer lock engages where
-the browser permits it (verified engaged on the canvas in a top-level
-page). Inside the Muse app's sandboxed embed frame the browser blocks
-pointer lock by policy (SecurityError — the frame lacks the
-allow-pointer-lock permission); there the game silently uses its fallback
-(mouse-look + click-to-shoot) and the on-screen hint describes the
-fallback honestly instead of promising a lock.
-
-### Also
-
-- Build stamp updated to **BUILD v6.4** (menu header/footer + HUD).
-- Page weight dropped sharply (the old build's index.html was ~12.1 MB;
-  zombie payloads are now ~2.8 MB total in `assets/zb/`).
-
-Unchanged: the 3 guns + v6.2 gun material guard, gameplay, the
-"Đi tìm Linh" story, 5 districts, 10 waves with bosses at 5 & 10,
-between-wave upgrades, lore notes, slim UI, VI/EN, mobile touch, quality
-tiers, fallback shooting.
+---
 
 ## Controls
 
-- **W A S D** — Move / Di chuyển
-- **SHIFT** — Run / Chạy nhanh
-- **SPACE** — Jump / Nhảy
-- **MOUSE** — Look around / Nhìn xung quanh (click to pointer-lock where
-  the browser permits it)
-- **CLICK** — Shoot / Bắn (hold with Rifle)
-- **R** — Reload / Nạp đạn
-- **1 · 2 · 3** — Switch weapon / Đổi súng
-- **F** — Flashlight / Đèn pin
-- **P / ESC** — Release mouse + pause / Thả chuột + tạm dừng
-- **10 waves** — Boss on waves 5 & 10
+| Key / Input | Action |
+| --- | --- |
+| `W A S D` | Move |
+| `Shift` | Sprint |
+| `Space` | Jump |
+| `Mouse / Touch Drag` | Aim & Look (click canvas for Pointer Lock) |
+| `Left Click` | Fire Weapon / Swing Sword (hold for Rifle) |
+| `V` or `Right Click` | Quick Melee Shove (knockback) |
+| `R` | Reload |
+| `E` / `Hold E` | Interact (Armory, Anvil, Generators, Traps, Barricades, Relics, Flare) |
+| `1` · `2` · `3` · `4` | Switch Weapon (`Pistol`, `Shotgun`, `Rifle`, `Thuận Thiên Kiếm`) |
+| `F` | Toggle Flashlight |
+| `G` | Throw Holy Flare (`12s` cooldown) |
+| `P` / `Esc` | Pause / Release Cursor |
 
-Mobile touch controls are included.
+---
 
-## Asset credits
+## Project Layout
 
-Character and environment models: Meshy AI-generated models from the
-library collected 2026-11-21 (`zb_*` from the library's monsters group;
-`env_*` from its dungeon / architecture / nature / props / vehicles
-groups), packed with gltfpack. Gun models unchanged from v5/v6 (Meshy,
-embedded in `index.html`).
+- `index.html` — Game shell, HUD, Armory/Anvil, Story Dossier, and Mobile Touch controls.
+- `frontend/css/style.css` — Responsive HUD & overlay styles.
+- `frontend/js/config.js` — Weapon stats, Scrap & Director tuning, VI/EN localization, `FPS.STORY` narrative data.
+- `frontend/js/levels.js` — 5 multi-height level definitions (ramps, underpasses, traps, barricades, objectives, lighting halos).
+- `frontend/js/world.js` — Three.js renderer, `groundY` vertical collision/OBB solver, GLB loader (`meshopt`), decal/halo instancing.
+- `frontend/js/entities.js` — Weapons, Mk.I–Mk.III upgrades, Incendiary DoT, zombie pool, Specials, Bosses, traps, shove.
+- `frontend/js/ui.js` — Bilingual HUD, Armory UI, Story Dossier, between-stage Perk Draft + lore cards, Radar.
+- `frontend/js/main.js` — Game loop, input/pointer-lock handling, AI Director, objective progression, `window.__fpsTest`.
+- `frontend/js/audio.js` — Procedural WebAudio synthesizer (`41` cues).
+- `frontend/js/api.js` — Express API client + automatic `localStorage` static fallback (`window.__ITCH_STATIC__`).
+- `assets/` — Packed Meshy GLB models (`assets/zb/`, `assets/env/`, `assets/weapons/`), `assets/fonts/BeVietnamPro`, `assets/story_intro.jpg`.
+- `backend/` — Optional Node.js profile & leaderboard persistence.
+- `tests/e2e/` — 110-case Playwright E2E test suite (`runner.js`, `tier1.spec.js`–`tier5.spec.js`).
 
-## Verification (2026-11-21)
+---
 
-- Builder verification in real local Chromium sessions against the served
-  build at forced minimum quality: `__zbTexOk()` true for all 5 zombie
-  models, `__gunTexOk()` true for all 3 guns, textured close-ups of every
-  zombie type, district screenshots, code-driven death fall measured,
-  pointer lock engaged top-level, sandboxed-frame fallback firing with
-  the honest hint, VI/EN round-trip, 390 px no overflow, both inline
-  scripts pass `node --check`.
-- Independent re-verification of the exported package (this folder served
-  over local HTTP, headless Chromium): all 5 zombie templates and all 3
-  guns report map bound + image loaded; 0 console errors in every
-  session; menu shows the v6.4 stamp and the Meshy-library credit; the
-  spawn view shows the new gate/stairs/torches/walls textured; the pistol
-  renders dark and textured; a real click during play engaged pointer
-  lock on the canvas (`document.pointerLockElement` = CANVAS) and fired
-  (magazine 12 → 11); a forced boss spawn raised the boss HP bar.
-- Not verified end-to-end: full wave-5 / wave-10 boss fights in live flow
-  (boss model, clips and HP bar verified via forced spawn). The
-  platform's automated audit could not capture this heavy WebGL page
-  (180 s timeout, as with previous builds); its content and security
-  reviews ran clean. FPS under SwiftShader software rendering is not
-  representative; use a real-GPU machine as the yardstick.
+## Running Locally & Testing
+
+Browsers restrict `fetch()` for `.glb` assets over `file://`, so serve over HTTP from the repository root (or parent workspace gateway):
+
+```bash
+python3 -m http.server 8000
+# Open http://localhost:8000
+```
+
+Run the Playwright smoke or full E2E verification suite:
+
+```bash
+node tests/e2e/runner.js --smoke
+node tests/e2e/runner.js
+```
+
+Build standalone static Itch.io HTML5 package (from parent `Muse Game` workspace):
+
+```bash
+node build-itch.mjs
+```
+
+---
+
+## Asset Credits
+
+- Character, creature, weapon, and environment 3D models: Meshy AI model library (`zb_*`, `env_*`, `wp_*`), optimized with `gltfpack` (meshopt + WebP textures).
+- Typography: `BeVietnamPro` (`Regular` & `Bold`).
